@@ -16,7 +16,6 @@ ninguno de los dos clientes habla directamente con la base de datos.
 | API | FastAPI · JWT · psycopg3 | `api/` | 8080 |
 | Panel web (Administrador) | Flask · Jinja | `web/` | 5000 |
 | App móvil (Mesero, Cocina, Caja) | Expo 54 · React Native | `movil/` | Expo Go |
-| Pruebas de API | Colección Postman | `postman/` | — |
 
 **Las credenciales están en [CREDENCIALES.md](CREDENCIALES.md).**
 
@@ -169,10 +168,15 @@ cd movil
 node verificar-sintaxis.js
 ```
 
-**Postman:** importa `postman/Terracota.postman_collection.json` y
-`postman/Terracota.postman_environment.json`, selecciona el entorno
-*Terracota local* y ejecuta la colección **en orden** (`Run collection`).
-Recorre el flujo completo guardando tokens e identificadores automáticamente.
+Para probar la API a mano, con el stack levantado abre
+<http://localhost:8080/docs>: Swagger permite autenticarse con el botón
+**Authorize** y lanzar cualquier endpoint desde el navegador.
+
+Y para comprobar que la base responde y el flujo completo funciona:
+
+```bash
+docker compose run --rm --entrypoint sh database-init -c "psql -h database -U postgres -d terracota -f /scripts/PRUEBA_FLUJO.sql"
+```
 
 ---
 
@@ -191,10 +195,9 @@ Terracota/
 ├── web/                   Flask: consume la API con `api_client.py`
 │   ├── templates/         Vistas Jinja
 │   └── static/            CSS y JS propios (sin CDN: funciona sin internet)
-├── movil/                 Expo: consume la API con `services/api.js`
-│   ├── screens/           Una pantalla por rol
-│   └── components/        Componentes e iconografía compartidos
-└── postman/               Colección de pruebas de la API
+└── movil/                 Expo: consume la API con `services/api.js`
+    ├── screens/           Una pantalla por rol
+    └── components/        Componentes e iconografía compartidos
 ```
 
 ## 8. Notas de seguridad
