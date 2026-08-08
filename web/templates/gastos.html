@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="title-actions">
+    <h1>Gastos del negocio</h1>
+  </section>
+
+  <section class="panel filter-panel">
+    <form method="get" class="filter-grid">
+      <label>
+        <span>Desde</span>
+        <input type="date" name="fecha_inicio" value="{{ fecha_inicio_str }}">
+      </label>
+      <label>
+        <span>Hasta</span>
+        <input type="date" name="fecha_fin" value="{{ fecha_fin_str }}">
+      </label>
+      <button class="primary" type="submit">Filtrar</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Registrar un gasto</h2>
+    <form method="post" class="filter-grid" data-confirm="¿Registrar este gasto?">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label class="span-2">
+        <span>Concepto</span>
+        <input name="concepto" minlength="3" maxlength="150" placeholder="Ej: Compra de café en grano" required>
+      </label>
+      <label>
+        <span>Monto</span>
+        <input name="monto" type="number" min="0" step="0.01" placeholder="0.00" required>
+      </label>
+      <label>
+        <span>Fecha</span>
+        <input name="fecha" type="date" value="{{ hoy }}">
+      </label>
+      <button class="primary" type="submit">Registrar</button>
+    </form>
+  </section>
+
+  <section class="panel large-panel">
+    <div class="panel-head">
+      <h2>Gastos del periodo <small class="subtle">({{ gastos|length }})</small></h2>
+      <strong class="total-pill">Total: {{ total }}</strong>
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr><th>Fecha</th><th>Concepto</th><th>Monto</th><th>Registrado por</th><th>Acciones</th></tr>
+      </thead>
+      <tbody>
+        {% for gasto in gastos %}
+          <tr>
+            <td>{{ gasto.fecha }}</td>
+            <td><strong>{{ gasto.concepto }}</strong></td>
+            <td>${{ "{:,.2f}".format(gasto.monto|float) }}</td>
+            <td>{{ gasto.registrado_por }}</td>
+            <td class="actions-cell">
+              <form method="post" action="{{ url_for('eliminar_gasto', gasto_id=gasto.id) }}"
+                    data-confirm="¿Eliminar el gasto «{{ gasto.concepto }}»?">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="icon-button" aria-label="Eliminar gasto" title="Eliminar">
+                  <img src="{{ url_for('static', filename='img/eliminar.png') }}" alt="">
+                </button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="empty-row">No hay gastos en el periodo seleccionado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

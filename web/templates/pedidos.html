@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="title-actions">
+    <h1>Gestión de Pedidos</h1>
+  </section>
+
+  <section class="panel filter-panel">
+    <form method="get" class="filter-grid">
+      <label>
+        <span>Fecha inicio</span>
+        <input type="date" name="fecha_inicio" value="{{ fecha_inicio_str }}">
+      </label>
+      <label>
+        <span>Fecha fin</span>
+        <input type="date" name="fecha_fin" value="{{ fecha_fin_str }}">
+      </label>
+      <label>
+        <span>Estado</span>
+        <select name="estado">
+          <option value="Todos">Todos</option>
+          {% for estado in estados %}
+            <option value="{{ estado }}" {% if estado_sel == estado %}selected{% endif %}>{{ estado }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>Mesa</span>
+        <input type="number" name="mesa" min="1" placeholder="Todas" value="{{ mesa_sel or '' }}">
+      </label>
+      <button class="primary" type="submit">Filtrar</button>
+    </form>
+  </section>
+
+  <section class="panel large-panel">
+    <div class="panel-head">
+      <h2>Listado de pedidos <small class="subtle">({{ pedidos|length }})</small></h2>
+      <div class="search">
+        <span>⌕</span>
+        <input id="pedidosSearch" type="search" placeholder="Buscar pedido..." oninput="filtrarPedidos()">
+      </div>
+    </div>
+    <table class="data-table" id="pedidosTable">
+      <thead>
+        <tr>
+          <th>ID</th><th>Folio</th><th>Mesa</th><th>Mesero</th>
+          <th>Total</th><th>Fecha / Hora</th><th>Estado</th><th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pedido in pedidos %}
+          <tr>
+            <td><strong>#{{ pedido.id }}</strong></td>
+            <td>{{ pedido.folio }}</td>
+            <td>Mesa {{ pedido.mesa }}</td>
+            <td>{{ pedido.mesero }}</td>
+            <td><strong>${{ "{:,.2f}".format(pedido.total|float) }}</strong></td>
+            <td>{{ pedido.fecha }}</td>
+            <td>
+              <span class="status-badge {% if pedido.estado in ('PAGADO', 'ENTREGADO') %}ok{% elif pedido.estado == 'CANCELADO' %}muted{% else %}process{% endif %}">
+                {{ pedido.estado }}
+              </span>
+            </td>
+            <td class="actions-cell">
+              <button type="button" class="icon-button" aria-label="Ver detalle del pedido {{ pedido.id }}"
+                      onclick="cargarDetalle({{ pedido.id }})" title="Ver detalle">
+                <img src="{{ url_for('static', filename='img/pedidos.png') }}" alt="">
+              </button>
+              {% if pedido.estado not in ('PAGADO', 'CANCELADO') %}
+                <form method="post"
+                      action="{{ url_for('cancelar_pedido', pedido_id=pedido.id, **request.args.to_dict()) }}"
+                      data-confirm="¿Cancelar el pedido #{{ pedido.id }}? Los productos regresarán al inventario.">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button type="submit" class="icon-button" aria-label="Cancelar pedido {{ pedido.id }}" title="Cancelar pedido">
+                    <img src="{{ url_for('static', filename='img/eliminar.png') }}" alt="">
+                  </button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="8" class="empty-row">No hay pedidos en el rango seleccionado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="pagination" id="pedidosPagination"></div>
+  </section>
+
+  <div id="detalleModal" class="modal-overlay" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+      <div class="modal-head">
+        <h3 id="modalTitulo">Detalle del pedido #<span id="modalPedidoId"></span></h3>
+        <button type="button" class="modal-close" onclick="cerrarModal()" aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="modal-meta">
+        <div><strong>Mesa:</strong> <span id="modalMesa"></span></div>
+        <div><strong>Mesero:</strong> <span id="modalMesero"></span></div>
+        <div><strong>Fecha:</strong> <span id="modalFecha"></span></div>
+        <div><strong>Estado:</strong> <span id="modalEstado"></span></div>
+      </div>
+      <div class="modal-scroll">
+        <table class="modal-table">
+          <thead>
+            <tr><th>Producto</th><th class="center">Cant.</th><th class="right">Precio</th><th class="right">Importe</th></tr>
+          </thead>
+          <tbody id="modalItemsBody"></tbody>
+        </table>
+      </div>
+      <div class="modal-notes" id="modalNotasContainer" hidden>
+        <strong>Notas:</strong> <span id="modalNotas"></span>
+      </div>
+      <div class="modal-scroll modal-history">
+        <strong>Historial de estados</strong>
+        <ul id="modalHistorial"></ul>
+      </div>
+      <div class="modal-foot">
+        <div><strong>Total:</strong> <span id="modalTotal" class="modal-total"></span></div>
+        <button class="ghost-button" type="button" onclick="cerrarModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const ROWS_PER_PAGE = 8;
+    let currentPage = 1;
+    const tbody = document.querySelector('#pedidosTable tbody');
+    const allRows = Array.from(tbody.querySelectorAll('tr'));
+    let filteredRows = [...allRows];
+
+    function filtrarPedidos() {
+      const query = document.getElementById('pedidosSearch').value.toLowerCase();
+      filteredRows = allRows.filter((row) => row.textContent.toLowerCase().includes(query));
+      currentPage = 1;
+      renderPage();
+    }
+
+    function renderPage() {
+      const totalPages = Math.max(1, Math.ceil(filteredRows.length / ROWS_PER_PAGE));
+      if (currentPage > totalPages) currentPage = totalPages;
+      const inicio = (currentPage - 1) * ROWS_PER_PAGE;
+
+      allRows.forEach((r) => { r.style.display = 'none'; });
+      filteredRows.slice(inicio, inicio + ROWS_PER_PAGE).forEach((r) => { r.style.display = ''; });
+
+      const pag = document.getElementById('pedidosPagination');
+      if (totalPages <= 1) { pag.innerHTML = ''; return; }
+      let html = '<span class="pag-btn" data-page="' + (currentPage - 1) + '">&lsaquo;</span>';
+      for (let i = 1; i <= totalPages; i++) {
+        html += '<span class="pag-btn' + (i === currentPage ? ' active' : '') + '" data-page="' + i + '">' + i + '</span>';
+      }
+      html += '<span class="pag-btn" data-page="' + (currentPage + 1) + '">&rsaquo;</span>';
+      pag.innerHTML = html;
+    }
+
+    // Un único listener delegado: no se acumulan manejadores al paginar.
+    document.getElementById('pedidosPagination').addEventListener('click', (event) => {
+      const boton = event.target.closest('.pag-btn');
+      if (!boton) return;
+      const destino = Number(boton.dataset.page);
+      const totalPages = Math.max(1, Math.ceil(filteredRows.length / ROWS_PER_PAGE));
+      if (destino < 1 || destino > totalPages) return;
+      currentPage = destino;
+      renderPage();
+    });
+
+    const modal = document.getElementById('detalleModal');
+    const dinero = (valor) => '$' + Number(valor).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    async function cargarDetalle(pedidoId) {
+      try {
+        const respuesta = await fetch('/pedidos/' + pedidoId, { headers: { Accept: 'application/json' } });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.error || 'No se pudo cargar el pedido.');
+
+        document.getElementById('modalPedidoId').textContent = datos.id;
+        document.getElementById('modalMesa').textContent = 'Mesa ' + datos.mesa;
+        document.getElementById('modalMesero').textContent = datos.mesero;
+        document.getElementById('modalFecha').textContent = datos.fecha;
+
+        const estado = document.getElementById('modalEstado');
+        estado.textContent = datos.estado;
+        estado.className = 'status-badge ' +
+          (['PAGADO', 'ENTREGADO'].includes(datos.estado) ? 'ok' : datos.estado === 'CANCELADO' ? 'muted' : 'process');
+
+        const cuerpo = document.getElementById('modalItemsBody');
+        cuerpo.innerHTML = '';
+        datos.items.forEach((item) => {
+          const fila = document.createElement('tr');
+          const nombre = document.createElement('td');
+          nombre.textContent = item.producto;
+          if (item.observacion) {
+            const nota = document.createElement('small');
+            nota.textContent = ' · ' + item.observacion;
+            nombre.appendChild(nota);
+          }
+          const cantidad = document.createElement('td');
+          cantidad.className = 'center';
+          cantidad.textContent = item.cantidad;
+          const precio = document.createElement('td');
+          precio.className = 'right';
+          precio.textContent = dinero(item.precio);
+          const importe = document.createElement('td');
+          importe.className = 'right';
+          importe.textContent = dinero(item.importe);
+          fila.append(nombre, cantidad, precio, importe);
+          cuerpo.appendChild(fila);
+        });
+
+        const historial = document.getElementById('modalHistorial');
+        historial.innerHTML = '';
+        (datos.historial || []).forEach((paso) => {
+          const li = document.createElement('li');
+          li.textContent = `${paso.fecha} · ${paso.estado_anterior || 'ALTA'} → ${paso.estado_nuevo}` +
+            ` (${paso.usuario})` + (paso.comentario ? ` — ${paso.comentario}` : '');
+          historial.appendChild(li);
+        });
+
+        const notas = document.getElementById('modalNotasContainer');
+        if (datos.notas) {
+          document.getElementById('modalNotas').textContent = datos.notas;
+          notas.hidden = false;
+        } else {
+          notas.hidden = true;
+        }
+
+        document.getElementById('modalTotal').textContent = dinero(datos.total);
+        modal.hidden = false;
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+
+    function cerrarModal() { modal.hidden = true; }
+
+    modal.addEventListener('click', (event) => { if (event.target === modal) cerrarModal(); });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') cerrarModal(); });
+
+    renderPage();
+  </script>
+{% endblock %}

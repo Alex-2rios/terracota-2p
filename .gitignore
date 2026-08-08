@@ -1,0 +1,43 @@
+# Dependencias
+node_modules/
+**/node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Variables de entorno reales (los .example SÍ se versionan)
+.env
+.env.*
+!.env.example
+
+# Nativo / firmas
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+/ios
+/android
+
+# Sistema y editores
+.DS_Store
+Thumbs.db
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.tsbuildinfo

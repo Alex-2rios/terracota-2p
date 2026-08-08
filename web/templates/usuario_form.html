@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="page-heading">
+    <h1>{{ page_title }}</h1>
+  </section>
+
+  <form class="form-card user-card" method="post"
+        data-confirm="¿Deseas guardar los datos de este usuario?">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <div class="form-title">
+      <img src="{{ url_for('static', filename='img/usuario.png') }}" alt="">
+      <h2>Información de la cuenta</h2>
+    </div>
+
+    <div class="form-grid">
+      <label>
+        <span>Nombre completo</span>
+        <input name="nombre" value="{{ usuario.nombre }}" minlength="2" maxlength="120" required>
+      </label>
+      <label>
+        <span>Usuario o correo</span>
+        <input name="usuario" value="{{ usuario.usuario }}" minlength="3" maxlength="60"
+               placeholder="mesero2 o nombre@terracota.com" required>
+      </label>
+      <label>
+        <span>Estado</span>
+        <select name="activo">
+          <option value="true" {% if usuario.activo %}selected{% endif %}>Activo</option>
+          <option value="false" {% if not usuario.activo %}selected{% endif %}>Inactivo</option>
+        </select>
+      </label>
+      <label>
+        <span>Contraseña{% if not es_nuevo %} (opcional){% endif %}</span>
+        <input name="password" type="password" minlength="8" autocomplete="new-password"
+               placeholder="{% if es_nuevo %}Mínimo 8 caracteres{% else %}Déjala vacía para no cambiarla{% endif %}"
+               {% if es_nuevo %}required{% endif %}>
+      </label>
+      <label>
+        <span>Confirmar contraseña</span>
+        <input name="confirmacion" type="password" minlength="8" autocomplete="new-password"
+               placeholder="Repite la contraseña" {% if es_nuevo %}required{% endif %}>
+      </label>
+    </div>
+
+    <div class="form-title separado">
+      <h2>Roles asignados</h2>
+    </div>
+    <p class="subtle">Un usuario puede tener varios roles. El rol <strong>Administrador</strong> es el único que entra al panel web.</p>
+    <div class="roles-grid">
+      {% for rol in roles %}
+        <label class="check-card">
+          <input type="checkbox" name="roles" value="{{ rol.clave }}"
+                 {% if rol.clave in usuario.roles %}checked{% endif %}>
+          <span>{{ rol.nombre }}</span>
+        </label>
+      {% endfor %}
+    </div>
+
+    <div class="form-actions">
+      <button class="primary" type="submit">{{ action_label }}</button>
+      <a href="{{ url_for('usuarios') }}">Cancelar</a>
+    </div>
+  </form>
+{% endblock %}

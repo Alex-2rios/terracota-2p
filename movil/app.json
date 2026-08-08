@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Terracota",
+    "slug": "terracota-movil",
+    "version": "2.0.0",
+    "platforms": ["ios", "android"],
+    "orientation": "portrait",
+    "icon": "./assets/adaptive-icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F4EBDD"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F4EBDD"
+      },
+      "edgeToEdgeEnabled": true,
+      "usesCleartextTraffic": true
+    }
+  }
+}

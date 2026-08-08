@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="title-actions">
+    <h1>Gestión de Inventario</h1>
+    <a class="primary add-button" href="{{ url_for('agregar_producto') }}">＋ Nuevo Producto</a>
+  </section>
+
+  {% if alertas %}
+    <section class="alerts-panel">
+      <h2>Alertas de stock</h2>
+      {% for alerta in alertas %}
+        <article class="alert-row">
+          <div>
+            <strong>{{ alerta.nombre }}</strong>
+            <span>Stock actual: {{ alerta.stock_actual }} · Mínimo: {{ alerta.stock_minimo }} · {{ alerta.categoria }}</span>
+          </div>
+          <b>{{ 'AGOTADO' if alerta.estado == 'AGOTADO' else 'BAJO' }}</b>
+        </article>
+      {% endfor %}
+    </section>
+  {% endif %}
+
+  <section class="panel inventory-panel">
+    <div class="panel-head">
+      <h2>Productos <small class="subtle">({{ productos|length }})</small></h2>
+      <form method="get" class="inline-filter" id="filtroInventario">
+        <div class="search product-search">
+          <span>⌕</span>
+          <input type="search" name="buscar" value="{{ buscar }}" placeholder="Buscar producto...">
+        </div>
+        {# Selector y casilla filtran al cambiar; el botón queda para la búsqueda por texto. #}
+        <select name="categoria" onchange="this.form.submit()">
+          <option value="Todos">Todas las categorías</option>
+          {% for categoria in categorias %}
+            <option value="{{ categoria.nombre }}" {% if categoria_sel == categoria.nombre %}selected{% endif %}>{{ categoria.nombre }}</option>
+          {% endfor %}
+        </select>
+        <label class="check-inline">
+          <input type="checkbox" name="incluir_eliminados" value="1"
+                 {% if incluir_eliminados %}checked{% endif %}
+                 onchange="this.form.submit()">
+          Ver dados de baja
+        </label>
+        <button class="ghost-button" type="submit">Buscar</button>
+        {% if buscar or incluir_eliminados or categoria_sel not in ('Todos', '') %}
+          <a class="ghost-button small" href="{{ url_for('inventario') }}">Limpiar</a>
+        {% endif %}
+      </form>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Producto</th><th>Categoría</th><th>Stock actual</th>
+          <th>Stock mínimo</th><th>Precio</th><th>Estado</th><th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for producto in productos %}
+          <tr class="{% if producto.eliminado %}row-inactive{% endif %}">
+            <td><strong>{{ producto.nombre }}</strong></td>
+            <td>{{ producto.categoria }}</td>
+            <td><strong>{{ producto.stock_actual }}</strong></td>
+            <td>{{ producto.stock_minimo }}</td>
+            <td>{{ producto.precio_texto }}</td>
+            <td>
+              <span class="status-badge {% if producto.estado == 'DISPONIBLE' %}ok{% elif producto.estado in ('BAJO', 'AGOTADO') %}process{% else %}muted{% endif %}">
+                {{ producto.estado_texto }}
+              </span>
+            </td>
+            <td class="actions-cell">
+              {% if not producto.eliminado %}
+                <a class="icon-button" href="{{ url_for('editar_producto', product_id=producto.id) }}"
+                   aria-label="Editar {{ producto.nombre }}" title="Editar">
+                  <img src="{{ url_for('static', filename='img/editar.png') }}" alt="">
+                </a>
+                <form method="post" action="{{ url_for('eliminar_producto', product_id=producto.id) }}"
+                      data-confirm="¿Dar de baja «{{ producto.nombre }}»? Seguirá apareciendo en los reportes históricos.">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button type="submit" class="icon-button" aria-label="Dar de baja {{ producto.nombre }}" title="Dar de baja">
+                    <img src="{{ url_for('static', filename='img/eliminar.png') }}" alt="">
+                  </button>
+                </form>
+              {% else %}
+                <span class="muted">Dado de baja</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="empty-row">No se encontraron productos.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

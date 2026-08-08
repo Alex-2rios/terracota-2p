@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="page-heading">
+    <h1>Reportes</h1>
+  </section>
+
+  <form class="report-card" method="post" action="{{ url_for('exportar_reporte') }}"
+        data-confirm="¿Generar y descargar el reporte seleccionado?">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input id="tipoReporte" type="hidden" name="tipo_reporte" value="ventas">
+
+    <h2>Generar nuevo reporte</h2>
+    <span class="subtle">Tipo de reporte</span>
+
+    <div class="report-types">
+      {% for clave, icono, titulo, descripcion in [
+        ("ventas", "reporte-ventas.png", "Reporte de Ventas", "Ingresos, gastos y transacciones"),
+        ("usuarios", "reporte-usuarios.png", "Reporte de Usuarios", "Actividad y roles del personal"),
+        ("inventario", "reporte-inventario.png", "Reporte de Inventario", "Existencias y disponibilidad")
+      ] %}
+        <button class="report-type {% if loop.first %}selected{% endif %}" type="button"
+                data-report="{{ clave }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">
+          <img src="{{ url_for('static', filename='img/' ~ icono) }}" alt="">
+          <strong>{{ titulo }}</strong>
+          <small>{{ descripcion }}</small>
+        </button>
+      {% endfor %}
+    </div>
+
+    <div class="report-summary" id="reportSummary"></div>
+
+    <h3 class="section-icon-title">
+      <img src="{{ url_for('static', filename='img/calendario.png') }}" alt="">
+      Rango de fechas
+    </h3>
+    <div class="form-grid compact" id="bloqueFechas">
+      <label>
+        <span>Fecha inicio</span>
+        <div class="date-input"><input id="fechaInicio" name="fecha_inicio" type="date" value="{{ fecha_inicio }}"></div>
+      </label>
+      <label>
+        <span>Fecha fin</span>
+        <div class="date-input"><input id="fechaFin" name="fecha_fin" type="date" value="{{ fecha_fin }}"></div>
+      </label>
+    </div>
+
+    <h3>Filtros adicionales</h3>
+    <div class="form-grid compact">
+      <label>
+        <span id="etiquetaCategoria">Categoría</span>
+        <select id="categoriaReporte" name="categoria"></select>
+      </label>
+      <label>
+        <span>Estado</span>
+        <select id="estadoReporte" name="estado"></select>
+      </label>
+    </div>
+
+    <h3>Formato de exportación</h3>
+    <div class="export-actions">
+      <button class="file-button" type="submit" name="formato" value="pdf"
+              title="Exportar en PDF" aria-label="Exportar en PDF">
+        <img src="{{ url_for('static', filename='img/pdf.png') }}" alt="PDF">
+      </button>
+      <button class="file-button" type="submit" name="formato" value="xlsx"
+              title="Exportar en Excel" aria-label="Exportar en Excel">
+        <img src="{{ url_for('static', filename='img/xlsx.png') }}" alt="XLSX">
+      </button>
+    </div>
+    <p class="export-hint" id="exportHint"></p>
+  </form>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='reportes.js') }}"></script>
+{% endblock %}

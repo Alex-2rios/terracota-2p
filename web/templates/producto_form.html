@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="page-heading">
+    <h1>{{ page_title }}</h1>
+  </section>
+
+  <form class="form-card product-card" method="post"
+        data-confirm="¿Deseas guardar este producto?">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <div class="form-title">
+      <img src="{{ url_for('static', filename='img/producto.png') }}" alt="">
+      <h2>Información del producto</h2>
+    </div>
+
+    <div class="form-grid">
+      <label>
+        <span>Nombre del producto</span>
+        <input name="nombre" value="{{ producto.nombre }}" minlength="2" maxlength="120"
+               placeholder="Ej: Café Americano" required>
+      </label>
+      <label>
+        <span>Categoría</span>
+        <select name="categoria" required>
+          {% for categoria in categorias %}
+            <option value="{{ categoria.nombre }}"
+              {% if producto.categoria == categoria.nombre %}selected{% endif %}>{{ categoria.nombre }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>Disponibilidad</span>
+        <select name="disponible">
+          <option value="true" {% if producto.disponible %}selected{% endif %}>Disponible en el menú</option>
+          <option value="false" {% if not producto.disponible %}selected{% endif %}>Fuera del menú</option>
+        </select>
+      </label>
+      <label>
+        <span>Stock actual</span>
+        <input name="stock_actual" type="number" min="0" step="1"
+               value="{{ producto.stock_actual }}" placeholder="Ej: 50" required>
+      </label>
+      <label>
+        <span>Stock mínimo</span>
+        <input name="stock_minimo" type="number" min="0" step="1"
+               value="{{ producto.stock_minimo }}" placeholder="Ej: 15" required>
+      </label>
+      <label>
+        <span>Precio unitario</span>
+        <input name="precio" type="number" min="0" step="0.01"
+               value="{{ producto.precio }}" placeholder="Ej: 45.00" required>
+      </label>
+      <label class="span-2">
+        <span>Descripción (opcional)</span>
+        <input name="descripcion" maxlength="250" value="{{ producto.descripcion or '' }}"
+               placeholder="Ej: Grano de altura, 12 oz">
+      </label>
+    </div>
+
+    {% if es_nuevo %}
+      <p class="subtle">La clave interna del producto se genera automáticamente a partir del nombre.</p>
+    {% endif %}
+
+    <div class="form-actions">
+      <button class="primary" type="submit">{{ action_label }}</button>
+      <a href="{{ url_for('inventario') }}">Cancelar</a>
+    </div>
+  </form>
+{% endblock %}

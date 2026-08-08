@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="login-page">
+    <img class="login-logo-img" src="{{ url_for('static', filename='img/logo.png') }}" alt="Terracota">
+    <form class="login-card" method="post" novalidate>
+      <h1>Iniciar Sesión</h1>
+      <div class="login-line"></div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}" role="alert">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <div id="clientAlert" class="alert alert-error" role="alert" hidden></div>
+
+      <div class="divider-label">
+        <span></span>
+        <strong>Panel de Administración</strong>
+        <span></span>
+      </div>
+
+      <label class="field-label" for="correo">Usuario</label>
+      <div class="input-icon">
+        <img src="{{ url_for('static', filename='img/correo.png') }}" alt="">
+        <input id="correo" name="correo" type="text" autocomplete="username"
+               placeholder="admin" autofocus>
+      </div>
+
+      <label class="field-label" for="password">Contraseña</label>
+      <div class="input-icon">
+        <img src="{{ url_for('static', filename='img/candado.png') }}" alt="">
+        <input id="password" name="password" type="password" autocomplete="current-password" placeholder="••••••••">
+        <img src="{{ url_for('static', filename='img/ojo-tachado.png') }}" alt="Mostrar u ocultar contraseña"
+             id="togglePassword" role="button" tabindex="0">
+      </div>
+
+      <button class="primary wide" type="submit">Ingresar</button>
+
+      <p class="api-status {% if estado_api == 'ok' %}api-ok{% else %}api-down{% endif %}">
+        {% if estado_api == 'ok' %}
+          API conectada · {{ api_url }}
+        {% else %}
+          Sin conexión con la API ({{ api_url }}) — {{ estado_api }}
+        {% endif %}
+      </p>
+    </form>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    (function () {
+      const toggle = document.getElementById('togglePassword');
+      const password = document.getElementById('password');
+      const usuario = document.getElementById('correo');
+      const aviso = document.getElementById('clientAlert');
+      const form = document.querySelector('.login-card');
+
+      function alternarPassword() {
+        password.type = password.type === 'password' ? 'text' : 'password';
+      }
+
+      toggle.addEventListener('click', alternarPassword);
+      toggle.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternarPassword(); }
+      });
+
+      function mostrarError(texto) {
+        aviso.textContent = texto;
+        aviso.hidden = false;
+      }
+
+      // La validación de formato la hace la API: aquí sólo se comprueba que no
+      // se envíen campos vacíos. El usuario puede ser un alias (`admin`) o un
+      // correo, así que no se impone ningún patrón.
+      form.addEventListener('submit', (event) => {
+        aviso.hidden = true;
+        if (!usuario.value.trim()) {
+          mostrarError('Escribe tu usuario.');
+          event.preventDefault();
+          usuario.focus();
+        } else if (!password.value) {
+          mostrarError('Escribe tu contraseña.');
+          event.preventDefault();
+          password.focus();
+        }
+      });
+    })();
+  </script>
+{% endblock %}

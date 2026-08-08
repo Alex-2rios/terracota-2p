@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Terracota | {{ page_title }}</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/logo.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body class="{% if hide_nav %}login-body{% endif %}">
+    {% if not hide_nav %}
+      <header class="topbar">
+        <a class="brand brand-logo" href="{{ url_for('inicio') }}">
+          <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Terracota">
+        </a>
+        <nav class="nav">
+          {% for clave, etiqueta in [
+            ('inicio', 'Inicio'), ('pedidos', 'Pedidos'), ('usuarios', 'Usuarios'),
+            ('inventario', 'Inventario'), ('gastos', 'Gastos'), ('reportes', 'Reportes')
+          ] %}
+            <a class="{% if active_page == clave %}active{% endif %}" href="{{ url_for(clave) }}">{{ etiqueta }}</a>
+          {% endfor %}
+        </nav>
+        <div class="admin">
+          <strong>{{ admin_user }}</strong>
+          <span>{{ admin_email }}</span>
+        </div>
+        <form method="post" action="{{ url_for('salir') }}" class="logout-form"
+              data-confirm="¿Deseas cerrar la sesión del panel?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="logout" type="submit" aria-label="Cerrar sesión">
+            <img src="{{ url_for('static', filename='img/salir.png') }}" alt="">
+          </button>
+        </form>
+      </header>
+    {% endif %}
+
+    <main class="{% if hide_nav %}login-shell{% else %}page-shell{% endif %}">
+      {% if not hide_nav %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages">
+              {% for category, message in messages %}
+                <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}" role="alert">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+
+    <div class="confirm-overlay" id="confirmOverlay" aria-hidden="true">
+      <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <h2 id="confirmTitle">Confirmar acción</h2>
+        <p id="confirmMessage">¿Deseas continuar?</p>
+        <div class="confirm-actions">
+          <button class="ghost-button" type="button" id="cancelConfirm">Cancelar</button>
+          <button class="primary" type="button" id="acceptConfirm">Confirmar</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='confirm.js') }}"></script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

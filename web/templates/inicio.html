@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="page-heading">
+    <h1>Estadísticas</h1>
+  </section>
+
+  {% if bajo_stock %}
+    <div class="alert alert-warning" role="status">
+      Hay <strong>{{ bajo_stock }}</strong> producto(s) con stock bajo o agotado.
+      <a href="{{ url_for('inventario') }}">Revisar inventario</a>
+    </div>
+  {% endif %}
+
+  <section class="metrics-grid">
+    {% for metric in metrics %}
+      <article class="metric-card">
+        <img src="{{ url_for('static', filename='img/' ~ metric.icon) }}" alt="">
+        <span>{{ metric.label }}</span>
+        <strong>{{ metric.value }}</strong>
+      </article>
+    {% endfor %}
+  </section>
+
+  <section class="dashboard-grid">
+    <article class="panel chart-panel">
+      <h2>Ganancias vs Gastos (últimos 7 días)</h2>
+
+      <div class="chart-filter" id="salesFilter" role="group" aria-label="Filtrar series de la gráfica">
+        <button type="button" data-serie="ambas" aria-pressed="true" class="active">Ambas</button>
+        <button type="button" data-serie="ganancias" aria-pressed="false">
+          <i class="swatch swatch-brand"></i>Ganancias
+        </button>
+        <button type="button" data-serie="gastos" aria-pressed="false">
+          <i class="swatch swatch-soft"></i>Gastos
+        </button>
+      </div>
+
+      <div class="chart-box">
+        <canvas id="salesChart" aria-label="Gráfica de ganancias contra gastos" role="img"></canvas>
+      </div>
+      <p class="chart-total" id="salesTotal"></p>
+    </article>
+
+    <article class="panel chart-panel">
+      <h2>Productos más vendidos</h2>
+      <div class="chart-box">
+        <canvas id="productsChart" aria-label="Ranking de productos más vendidos" role="img"></canvas>
+      </div>
+      <div class="chart-legend" id="productsLegend"></div>
+    </article>
+  </section>
+
+  <section class="panel orders-panel">
+    <div class="panel-head">
+      <h2>Pedidos recientes</h2>
+      <a class="ghost-button" href="{{ url_for('pedidos') }}">Ver todos</a>
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Folio</th><th>Mesa</th><th>Mesero</th><th>Total</th><th>Hora</th><th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pedido in pedidos %}
+          <tr>
+            <td><strong>#{{ pedido.id }}</strong></td>
+            <td>Mesa {{ pedido.mesa }}</td>
+            <td>{{ pedido.mesero }}</td>
+            <td><strong>${{ "{:,.2f}".format(pedido.total|float) }}</strong></td>
+            <td>{{ pedido.hora }}</td>
+            <td>
+              <span class="status-badge {% if pedido.estado == 'PAGADO' %}ok{% elif pedido.estado == 'CANCELADO' %}muted{% else %}process{% endif %}">
+                {{ pedido.estado }}
+              </span>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" class="empty-row">Todavía no hay pedidos registrados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script id="datosGraficas" type="application/json">
+    {{ {
+         "ventas": chart_sales|map(attribute='dia_semana')|list,
+         "ganancias": chart_sales|map(attribute='ganancias')|map('float')|list,
+         "gastos": chart_sales|map(attribute='gastos')|map('float')|list,
+         "productos": chart_products|map(attribute='nombre')|list,
+         "cantidades": chart_products|map(attribute='cantidad')|list
+       }|tojson }}
+  </script>
+  <script src="{{ url_for('static', filename='charts.js') }}"></script>
+{% endblock %}

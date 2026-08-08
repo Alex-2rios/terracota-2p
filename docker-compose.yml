@@ -1,0 +1,83 @@
+# =============================================================================
+#  Terracota - stack completo: PostgreSQL + API + Panel Web
+#
+#      docker compose up -d --build
+#
+#  Panel web : http://localhost:5000
+#  API/Swagger: http://localhost:8080/docs
+#  PostgreSQL : localhost:5433 (5433 para no chocar con una instalación local)
+# =============================================================================
+
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: terracota-postgres
+    environment:
+      POSTGRES_DB: terracota
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      TZ: America/Mexico_City
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - terracota_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d terracota"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  # Aplica el esquema y crea el usuario de la API. Los scripts son idempotentes,
+  # así que puede volver a correr en cada `up` sin borrar datos.
+  database-init:
+    image: postgres:16-alpine
+    container_name: terracota-init
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGHOST: database
+      PGUSER: postgres
+      PGDATABASE: terracota
+      API_DB_PASSWORD: ${API_DB_PASSWORD:-TerracotaLocal123!}
+    volumes:
+      - ./database:/scripts:ro
+    command: ["/bin/sh", "/scripts/init.sh"]
+    depends_on:
+      database:
+        condition: service_healthy
+
+  api:
+    build: ./api
+    container_name: terracota-api
+    environment:
+      DATABASE_URL: postgresql://terracota_app:${API_DB_PASSWORD:-TerracotaLocal123!}@database:5432/terracota
+      JWT_SECRET: ${JWT_SECRET:-desarrollo-local-cambia-esta-clave-de-terracota-2026}
+      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-480}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5000,http://127.0.0.1:5000,http://localhost:8081,http://localhost:19006}
+      TZ: America/Mexico_City
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      database-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    container_name: terracota-web
+    environment:
+      # Dentro de la red de Docker la web llama al servicio `api` por su nombre.
+      API_URL: http://api:8080/api/v1
+      SECRET_KEY: ${WEB_SECRET_KEY:-desarrollo-local-cambia-esta-clave-de-sesion-web}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      TZ: America/Mexico_City
+    ports:
+      - "${WEB_PORT:-5000}:5000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  terracota_pgdata:
