@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from datetime import date, datetime
-from decimal import Decimal
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from psycopg import Connection
 
+from .. import reportes
 from ..database import get_connection
 from ..dependencies import CurrentUser, require_roles
 from ..queries import asignar_roles, get_usuario, usuario_disponible, validar_roles
@@ -15,7 +15,6 @@ from ..schemas import (
     CancelarPedido,
     GastoCreate,
     Reporte,
-    SeccionReporte,
     UsuarioCreate,
     UsuarioUpdate,
 )
@@ -25,10 +24,6 @@ router = APIRouter(prefix="/administracion", tags=["Administración"])
 admin_required = require_roles("administrador")
 
 TZ = "America/Mexico_City"
-
-
-def _dinero(valor) -> str:
-    return f"${Decimal(valor or 0):,.2f}"
 
 
 def _rango(fecha_inicio: Optional[date], fecha_fin: Optional[date]) -> tuple[date, date]:
@@ -471,266 +466,146 @@ def dashboard(
 
 
 # ============================================================== reportes
+CATALOGO_REPORTES = [
+    {
+        "clave": "ventas", "nombre": "Ventas",
+        "descripcion": "Resumen del periodo, ventas por día, por método de pago y detalle de transacciones.",
+        "filtros": ["fechas", "categoria", "estado_pedido", "mesa", "mesero"],
+        "formato_sugerido": "pdf",
+    },
+    {
+        "clave": "pedidos", "nombre": "Pedidos",
+        "descripcion": "Pedidos por estado, productividad por mesero, tiempos de entrega y renglones de cada pedido.",
+        "filtros": ["fechas", "estado_pedido", "mesa", "mesero"],
+        "formato_sugerido": "pdf",
+    },
+    {
+        "clave": "productos", "nombre": "Productos",
+        "descripcion": "Catálogo del menú, ranking de más vendidos, desempeño por categoría y productos sin ventas.",
+        "filtros": ["fechas", "categoria", "estado_inventario"],
+        "formato_sugerido": "xlsx",
+    },
+    {
+        "clave": "inventario", "nombre": "Inventario",
+        "descripcion": "Existencias, alertas de reposición, valor del inventario y consumo del periodo.",
+        "filtros": ["fechas", "categoria", "estado_inventario"],
+        "formato_sugerido": "xlsx",
+    },
+    {
+        "clave": "tickets", "nombre": "Tickets y cobros",
+        "descripcion": "Corte de caja, cobros por cajero y detalle de cada ticket emitido.",
+        "filtros": ["fechas", "metodo_pago", "cajero"],
+        "formato_sugerido": "pdf",
+    },
+    {
+        "clave": "gastos", "nombre": "Gastos",
+        "descripcion": "Balance de ingresos contra egresos, gastos por día y detalle de cada movimiento.",
+        "filtros": ["fechas"],
+        "formato_sugerido": "xlsx",
+    },
+    {
+        "clave": "usuarios", "nombre": "Usuarios",
+        "descripcion": "Personal por rol, actividad en el periodo y agrupación por estado de la cuenta.",
+        "filtros": ["fechas", "rol", "estado_usuario"],
+        "formato_sugerido": "pdf",
+    },
+    {
+        "clave": "mesas", "nombre": "Mesas",
+        "descripcion": "Estado actual de cada mesa y su uso en el periodo (pedidos, importe y ticket promedio).",
+        "filtros": ["fechas"],
+        "formato_sugerido": "pdf",
+    },
+    {
+        "clave": "auditoria", "nombre": "Auditoría",
+        "descripcion": "Historial de cambios de estado de los pedidos y bitácora de movimientos del sistema.",
+        "filtros": ["fechas"],
+        "formato_sugerido": "pdf",
+    },
+]
+
+
+@router.get("/reportes/opciones", summary="Catálogo de Reportes y sus Filtros")
+def report_options(
+    _: CurrentUser = Depends(admin_required),
+    connection: Connection = Depends(get_connection),
+) -> dict:
+    """Todo lo que el formulario de reportes necesita, en una sola llamada.
+
+    El panel web construye la pantalla a partir de esto, así que agregar un
+    reporte nuevo aquí lo hace aparecer en la web sin tocar el frontend.
+    """
+    categorias = connection.execute(
+        "SELECT nombre FROM terracota.categorias WHERE activo ORDER BY orden, nombre"
+    ).fetchall()
+    meseros = connection.execute(
+        """
+        SELECT DISTINCT u.nombre FROM terracota.usuarios u
+        JOIN terracota.usuario_roles ur ON ur.usuario_id = u.id
+        JOIN terracota.roles r ON r.id = ur.rol_id
+        WHERE r.clave IN ('mesero', 'administrador') AND NOT u.eliminado
+        ORDER BY u.nombre
+        """
+    ).fetchall()
+    cajeros = connection.execute(
+        """
+        SELECT DISTINCT u.nombre FROM terracota.usuarios u
+        JOIN terracota.usuario_roles ur ON ur.usuario_id = u.id
+        JOIN terracota.roles r ON r.id = ur.rol_id
+        WHERE r.clave IN ('caja', 'administrador') AND NOT u.eliminado
+        ORDER BY u.nombre
+        """
+    ).fetchall()
+    mesas = connection.execute(
+        "SELECT numero FROM terracota.mesas WHERE activa ORDER BY numero"
+    ).fetchall()
+    roles = connection.execute(
+        "SELECT nombre FROM terracota.roles ORDER BY nombre"
+    ).fetchall()
+
+    return {
+        "tipos": CATALOGO_REPORTES,
+        "opciones": {
+            "categoria": ["Todas"] + [r["nombre"] for r in categorias],
+            "estado_pedido": ["Todos"] + list(ESTADOS_PEDIDO),
+            "estado_inventario": ["Todos", "Disponible", "Bajo", "Agotado", "No disponible", "Eliminado"],
+            "estado_usuario": ["Todos", "Activo", "Inactivo", "Eliminado"],
+            "metodo_pago": ["Todos", "EFECTIVO", "TARJETA", "TRANSFERENCIA"],
+            "mesa": ["Todas"] + [str(r["numero"]) for r in mesas],
+            "mesero": ["Todos"] + [r["nombre"] for r in meseros],
+            "cajero": ["Todos"] + [r["nombre"] for r in cajeros],
+            "rol": ["Todos"] + [r["nombre"] for r in roles],
+        },
+    }
+
+
 @router.get("/reportes", response_model=Reporte, summary="Generar Reporte")
 def build_report(
-    tipo: str = Query(description="ventas | usuarios | inventario"),
+    tipo: str = Query(description=f"Uno de: {', '.join(reportes.TIPOS)}"),
     fecha_inicio: Optional[date] = None,
     fecha_fin: Optional[date] = None,
-    categoria: Optional[str] = None,
-    estado: Optional[str] = None,
+    categoria: Optional[str] = Query(default=None, description="Categoría de producto o rol, según el reporte"),
+    estado: Optional[str] = Query(default=None, description="Estado del pedido, del inventario o del usuario"),
+    mesa: Optional[int] = None,
+    usuario: Optional[str] = Query(default=None, description="Nombre del mesero o del cajero"),
+    metodo: Optional[str] = Query(default=None, description="Método de pago"),
     _: CurrentUser = Depends(admin_required),
     connection: Connection = Depends(get_connection),
 ) -> Reporte:
     """Devuelve el reporte ya estructurado en secciones.
 
-    La API arma los datos; el panel web sólo los convierte a PDF o XLSX. Así
-    cualquier cliente puede consumir el mismo reporte.
+    La API arma los datos; el cliente sólo los convierte a PDF o XLSX, de modo
+    que cualquier consumidor obtiene exactamente el mismo reporte.
     """
-    tipo_normalizado = tipo.strip().lower()
-    categoria = (categoria or "").strip()
-    estado = (estado or "").strip()
-    cat_libre = categoria.lower() in {"", "todos", "todas", "todos los productos", "todos los roles", "inventario general"}
-    est_libre = estado.lower() in {"", "todos"}
-
-    generado = datetime.now().strftime("%Y-%m-%d %H:%M")
-
-    if tipo_normalizado == "ventas":
-        inicio, fin = _rango(fecha_inicio, fecha_fin)
-        return Reporte(
-            titulo=f"Reporte Consolidado de Ventas ({inicio} a {fin})",
-            generado_en=generado,
-            secciones=_reporte_ventas(connection, inicio, fin, categoria, estado, cat_libre, est_libre),
+    clave = tipo.strip().lower()
+    if clave not in reportes.TIPOS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Tipo de reporte no reconocido. Usa uno de: {', '.join(reportes.TIPOS)}.",
         )
 
-    if tipo_normalizado == "usuarios":
-        return Reporte(
-            titulo="Reporte de Usuarios del Sistema",
-            generado_en=generado,
-            secciones=_reporte_usuarios(connection, categoria, estado, cat_libre, est_libre),
-        )
-
-    if tipo_normalizado == "inventario":
-        return Reporte(
-            titulo="Reporte de Inventario y Existencias",
-            generado_en=generado,
-            secciones=_reporte_inventario(connection, categoria, estado, cat_libre, est_libre),
-        )
-
-    raise HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail="Tipo de reporte no reconocido. Usa ventas, usuarios o inventario.",
+    inicio, fin = _rango(fecha_inicio, fecha_fin)
+    filtros = reportes.Filtros(
+        fecha_inicio=inicio, fecha_fin=fin, categoria=categoria,
+        estado=estado, mesa=mesa, usuario=usuario, metodo=metodo,
     )
-
-
-def _reporte_ventas(connection, inicio, fin, categoria, estado, cat_libre, est_libre) -> list[SeccionReporte]:
-    estado_sql = "PAGADO" if estado.upper() == "COMPLETADO" else estado.upper()
-
-    filtro_cat = "" if cat_libre else " AND upper(c.nombre) = upper(%s)"
-    filtro_est = "" if est_libre else " AND p.estado = %s"
-
-    params: list = [inicio, fin]
-    if not cat_libre:
-        params.append(categoria)
-    if not est_libre:
-        params.append(estado_sql)
-
-    productos = connection.execute(
-        f"""
-        SELECT pd.nombre_producto, c.nombre AS categoria,
-               max(pr.stock_actual)::integer AS stock_actual,
-               sum(pd.cantidad)::integer AS cantidad_vendida,
-               sum(pd.importe)::numeric(12,2) AS total_recaudado
-        FROM terracota.pedido_detalles pd
-        JOIN terracota.pedidos p ON p.id = pd.pedido_id
-        JOIN terracota.productos pr ON pr.id = pd.producto_id
-        JOIN terracota.categorias c ON c.id = pr.categoria_id
-        WHERE (p.creado_en AT TIME ZONE '{TZ}')::date BETWEEN %s AND %s{filtro_cat}{filtro_est}
-        GROUP BY pd.nombre_producto, c.nombre
-        ORDER BY cantidad_vendida DESC
-        """,
-        params,
-    ).fetchall()
-
-    params_tx: list = [inicio, fin]
-    if not est_libre:
-        params_tx.append(estado_sql)
-    filtro_cat_tx = ""
-    if not cat_libre:
-        filtro_cat_tx = """ AND EXISTS (
-            SELECT 1 FROM terracota.pedido_detalles pds
-            JOIN terracota.productos prs ON prs.id = pds.producto_id
-            JOIN terracota.categorias cs ON cs.id = prs.categoria_id
-            WHERE pds.pedido_id = p.id AND upper(cs.nombre) = upper(%s)
-        )"""
-        params_tx.append(categoria)
-
-    transacciones = connection.execute(
-        f"""
-        SELECT p.id AS pedido_id, COALESCE(t.folio, '-') AS folio, m.numero AS mesa,
-               u.nombre AS mesero, COALESCE(pg.metodo, '-') AS metodo, p.total,
-               to_char(p.creado_en AT TIME ZONE '{TZ}', 'YYYY-MM-DD HH24:MI') AS fecha,
-               p.estado
-        FROM terracota.pedidos p
-        JOIN terracota.mesas m ON m.id = p.mesa_id
-        JOIN terracota.usuarios u ON u.id = p.mesero_id
-        LEFT JOIN terracota.pagos pg ON pg.pedido_id = p.id
-        LEFT JOIN terracota.tickets t ON t.pago_id = pg.id
-        WHERE (p.creado_en AT TIME ZONE '{TZ}')::date BETWEEN %s AND %s{filtro_est}{filtro_cat_tx}
-        ORDER BY p.creado_en DESC
-        """,
-        params_tx,
-    ).fetchall()
-
-    cobrado = sum(Decimal(r["total"]) for r in transacciones if r["estado"] == "PAGADO")
-    gastos = connection.execute(
-        "SELECT COALESCE(sum(monto), 0) AS total FROM terracota.gastos WHERE fecha BETWEEN %s AND %s",
-        (inicio, fin),
-    ).fetchone()["total"]
-
-    return [
-        SeccionReporte(
-            titulo="1. Resumen del periodo",
-            headers=["Concepto", "Valor"],
-            rows=[
-                ["Pedidos en el periodo", str(len(transacciones))],
-                ["Pedidos cobrados", str(sum(1 for r in transacciones if r["estado"] == "PAGADO"))],
-                ["Ingresos cobrados", _dinero(cobrado)],
-                ["Gastos registrados", _dinero(gastos)],
-                ["Utilidad estimada", _dinero(cobrado - Decimal(gastos or 0))],
-            ],
-        ),
-        SeccionReporte(
-            titulo="2. Ventas por producto (volumen y recaudación)",
-            headers=["Producto", "Categoría", "Stock actual", "Cantidad vendida", "Total recaudado"],
-            rows=[
-                [r["nombre_producto"], r["categoria"], str(r["stock_actual"]),
-                 str(r["cantidad_vendida"]), _dinero(r["total_recaudado"])]
-                for r in productos
-            ],
-        ),
-        SeccionReporte(
-            titulo="3. Detalle de transacciones",
-            headers=["ID", "Folio", "Mesa", "Mesero", "Método", "Total", "Fecha", "Estado"],
-            rows=[
-                [str(r["pedido_id"]), r["folio"], str(r["mesa"]), r["mesero"], r["metodo"],
-                 _dinero(r["total"]), r["fecha"], r["estado"]]
-                for r in transacciones
-            ],
-        ),
-    ]
-
-
-def _reporte_usuarios(connection, categoria, estado, cat_libre, est_libre) -> list[SeccionReporte]:
-    mapa_roles = {
-        "ADMINISTRADOR": "administrador", "MESERO": "mesero",
-        "COCINA": "cocina", "CAJERO": "caja", "CAJA": "caja",
-    }
-    condiciones: list[str] = []
-    params: list = []
-
-    if not est_libre:
-        etiqueta = estado.capitalize()
-        if etiqueta == "Activo":
-            condiciones.append("activo AND NOT eliminado")
-        elif etiqueta == "Inactivo":
-            condiciones.append("NOT activo AND NOT eliminado")
-        elif etiqueta == "Eliminado":
-            condiciones.append("eliminado")
-    if not cat_libre:
-        clave = mapa_roles.get(categoria.upper())
-        if clave:
-            condiciones.append("%s = ANY(roles)")
-            params.append(clave)
-
-    where = f"WHERE {' AND '.join(condiciones)}" if condiciones else ""
-    registros = connection.execute(
-        f"""
-        SELECT nombre, usuario, activo, eliminado,
-               array_to_string(roles_nombre, ', ') AS roles,
-               to_char(creado_en AT TIME ZONE '{TZ}', 'YYYY-MM-DD') AS fecha_registro,
-               COALESCE(to_char(ultimo_acceso AT TIME ZONE '{TZ}', 'YYYY-MM-DD HH24:MI'), 'Nunca') AS ultimo_acceso
-        FROM terracota.vista_usuarios
-        {where}
-        ORDER BY nombre
-        """,
-        params,
-    ).fetchall()
-
-    grupos = {"Activos": [], "Inactivos": [], "Dados de baja": []}
-    for r in registros:
-        destino = "Dados de baja" if r["eliminado"] else ("Activos" if r["activo"] else "Inactivos")
-        grupos[destino].append(r)
-
-    headers = ["Nombre", "Usuario", "Estado", "Roles", "Registro", "Último acceso"]
-    secciones: list[SeccionReporte] = []
-    for indice, (titulo, filas) in enumerate(grupos.items(), start=1):
-        if not filas:
-            continue
-        etiqueta = {"Activos": "Activo", "Inactivos": "Inactivo", "Dados de baja": "Baja"}[titulo]
-        secciones.append(SeccionReporte(
-            titulo=f"{indice}. Usuarios {titulo.lower()}",
-            headers=headers,
-            rows=[[r["nombre"], r["usuario"], etiqueta, r["roles"] or "Sin rol",
-                   r["fecha_registro"], r["ultimo_acceso"]] for r in filas],
-        ))
-    if not secciones:
-        secciones.append(SeccionReporte(
-            titulo="Sin resultados", headers=headers,
-            rows=[["-", "-", "-", "-", "-", "-"]],
-        ))
-    return secciones
-
-
-def _reporte_inventario(connection, categoria, estado, cat_libre, est_libre) -> list[SeccionReporte]:
-    mapa_estado = {
-        "DISPONIBLE": "DISPONIBLE", "BAJO": "BAJO", "URGENTE": "AGOTADO", "AGOTADO": "AGOTADO",
-        "NO DISPONIBLE": "NO_DISPONIBLE", "NO_DISPONIBLE": "NO_DISPONIBLE", "ELIMINADO": "ELIMINADO",
-    }
-    condiciones: list[str] = []
-    params: list = []
-
-    if not cat_libre:
-        condiciones.append("(upper(categoria) = upper(%s) OR upper(categoria_clave) = upper(%s))")
-        params.extend([categoria, categoria])
-    if not est_libre:
-        clave = mapa_estado.get(estado.upper())
-        if clave:
-            condiciones.append("estado = %s")
-            params.append(clave)
-
-    where = f"WHERE {' AND '.join(condiciones)}" if condiciones else ""
-    registros = connection.execute(
-        f"SELECT * FROM terracota.vista_inventario {where} ORDER BY categoria, nombre",
-        params,
-    ).fetchall()
-
-    etiquetas = {
-        "DISPONIBLE": "Disponible", "BAJO": "Bajo stock", "AGOTADO": "Agotado",
-        "NO_DISPONIBLE": "No disponible", "ELIMINADO": "Dado de baja",
-    }
-    grupos: dict[str, list] = {"En venta": [], "Fuera de venta": [], "Dados de baja": []}
-    for r in registros:
-        if r["eliminado"]:
-            grupos["Dados de baja"].append(r)
-        elif r["disponible"]:
-            grupos["En venta"].append(r)
-        else:
-            grupos["Fuera de venta"].append(r)
-
-    headers = ["Producto", "Categoría", "Stock actual", "Stock mínimo", "Precio", "Estado"]
-    secciones: list[SeccionReporte] = []
-    for indice, (titulo, filas) in enumerate(grupos.items(), start=1):
-        if not filas:
-            continue
-        secciones.append(SeccionReporte(
-            titulo=f"{indice}. Productos {titulo.lower()}",
-            headers=headers,
-            rows=[[r["nombre"], r["categoria"], str(r["stock_actual"]), str(r["stock_minimo"]),
-                   _dinero(r["precio"]), etiquetas.get(r["estado"], r["estado"])] for r in filas],
-        ))
-    if not secciones:
-        secciones.append(SeccionReporte(
-            titulo="Sin resultados", headers=headers,
-            rows=[["-", "-", "-", "-", "-", "-"]],
-        ))
-    return secciones
+    return reportes.construir(connection, clave, filtros)

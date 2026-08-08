@@ -40,7 +40,7 @@ python app.py
 | `/usuarios` | Alta, edición con roles múltiples, baja lógica y reactivación |
 | `/inventario` | Alta, edición, baja lógica y alertas de stock |
 | `/gastos` | Registro de gastos (alimentan la gráfica del tablero) |
-| `/reportes` | Ventas, usuarios e inventario exportables a PDF y XLSX |
+| `/reportes` | Nueve reportes (ventas, pedidos, productos, inventario, tickets, gastos, usuarios, mesas y auditoría) para ver en pantalla o descargar en PDF y XLSX |
 | `/salud` | Diagnóstico: comprueba la conexión con la API |
 
 ## Seguridad
@@ -62,7 +62,13 @@ python app.py
   visible, así que al ver una sola serie se aprecia mejor su variación.
 - Los **reportes** los arma la API ya seccionados; la web sólo los convierte a
   PDF (reportlab) o XLSX (openpyxl). Cualquier otro cliente puede pedir el
-  mismo reporte.
+  mismo reporte. La pantalla de reportes se construye a partir del catálogo
+  que publica la API, así que no hay ninguna lista codificada en el frontend.
+- Si la API falla, la web **no redirige**: muestra una página de error. Redirigir
+  provocaba un bucle infinito (`ERR_TOO_MANY_REDIRECTS`) porque el destino
+  fallaba igual. Los errores del usuario (un filtro mal puesto) se distinguen de
+  los del servicio: los primeros limpian el filtro y avisan, los segundos
+  explican que el servicio no responde.
 - `static/confirm.js` reinyecta el botón que disparó el envío como campo
   oculto: sin eso, `form.submit()` perdería cuál de los dos botones de
   exportación se presionó.

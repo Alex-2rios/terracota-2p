@@ -71,7 +71,20 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 | POST | `/administracion/pedidos/{id}/cancelar` |
 | GET/POST | `/administracion/gastos` · DELETE `/administracion/gastos/{id}` |
 | GET | `/administracion/estadisticas/resumen` · `/estadisticas/dashboard` |
-| GET | `/administracion/reportes?tipo=ventas\|usuarios\|inventario` |
+| GET | `/administracion/reportes/opciones` (catálogo de reportes y sus filtros) |
+| GET | `/administracion/reportes?tipo=…` |
+
+Los reportes viven en `app/reportes.py`, uno por función, registrados en el
+diccionario `TIPOS`. Hay nueve: `ventas`, `pedidos`, `productos`, `inventario`,
+`tickets`, `gastos`, `usuarios`, `mesas` y `auditoria`. Todos aceptan
+`fecha_inicio`, `fecha_fin` y, según el caso, `categoria`, `estado`, `mesa`,
+`usuario` y `metodo`.
+
+Cada reporte devuelve secciones ya armadas (título, encabezados y filas de
+texto): la API produce los datos y el cliente sólo los pinta o los convierte a
+PDF/XLSX, de modo que cualquier consumidor obtiene el mismo reporte. Para
+agregar uno nuevo basta una función y una entrada en `TIPOS`; el panel web lo
+descubre solo a través de `/reportes/opciones`.
 
 ## Cómo funcionan los permisos
 

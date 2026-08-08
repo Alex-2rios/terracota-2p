@@ -162,6 +162,14 @@ class TerracotaApi:
         return self._request("DELETE", f"/administracion/gastos/{gasto_id}", token=token)
 
     # -------------------------------------------------------------- reportes
+    def opciones_reporte(self, token: str) -> dict:
+        """Catálogo de reportes y valores de sus filtros.
+
+        La web construye el formulario con esto: agregar un reporte en la API
+        lo hace aparecer aquí sin tocar el frontend.
+        """
+        return self._request("GET", "/administracion/reportes/opciones", token=token)
+
     def reporte(self, token: str, **filtros) -> dict:
         return self._request("GET", "/administracion/reportes", token=token, params=_limpiar(filtros))
 

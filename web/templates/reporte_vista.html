@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="title-actions">
+    <h1>{{ reporte.titulo }}</h1>
+    <a class="ghost-button" href="{{ url_for('reportes') }}">← Otro reporte</a>
+  </section>
+
+  <p class="subtle report-generado">Generado el {{ reporte.generado_en }}</p>
+
+  {# Se reenvían los mismos filtros para que la descarga coincida con lo que se ve. #}
+  <form method="post" action="{{ url_for('exportar_reporte') }}" class="report-download">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% for clave, valor in filtros.items() %}
+      {% if clave not in ('csrf_token', 'formato') %}
+        <input type="hidden" name="{{ clave }}" value="{{ valor }}">
+      {% endif %}
+    {% endfor %}
+    <span class="subtle">Descargar este mismo reporte:</span>
+    <button class="file-button" type="submit" name="formato" value="pdf" title="Descargar en PDF">
+      <img src="{{ url_for('static', filename='img/pdf.png') }}" alt="PDF">
+    </button>
+    <button class="file-button" type="submit" name="formato" value="xlsx" title="Descargar en Excel">
+      <img src="{{ url_for('static', filename='img/xlsx.png') }}" alt="XLSX">
+    </button>
+  </form>
+
+  {% for seccion in reporte.secciones %}
+    <section class="panel large-panel report-section">
+      <div class="panel-head">
+        <h2>{{ seccion.titulo }}</h2>
+        <span class="subtle">{{ seccion.rows|length }} renglón(es)</span>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>{% for encabezado in seccion.headers %}<th>{{ encabezado }}</th>{% endfor %}</tr>
+          </thead>
+          <tbody>
+            {% for fila in seccion.rows %}
+              <tr>{% for celda in fila %}<td>{{ celda }}</td>{% endfor %}</tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endfor %}
+{% endblock %}

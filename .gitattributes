@@ -1,2 +1,19 @@
-# Auto detect text files and perform LF normalization
+# Detección automática de archivos de texto y normalización a LF en el repo.
 * text=auto
+
+# Estos archivos los ejecuta Linux dentro de los contenedores: DEBEN ir con
+# saltos de línea LF. Con CRLF, `sh` falla con "illegal option" porque recibe
+# el retorno de carro pegado al último argumento.
+*.sh      text eol=lf
+Dockerfile text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.sql     text eol=lf
+
+# Binarios: que Git no los toque.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="error-page">
+    <div class="error-icon">!</div>
+    <h1>{{ titulo }}</h1>
+    <p class="error-mensaje">{{ mensaje }}</p>
+
+    {% if detalle %}
+      <p class="error-detalle">{{ detalle }}</p>
+    {% endif %}
+
+    <div class="error-acciones">
+      <a class="primary" href="{{ reintentar }}">Reintentar</a>
+      <a class="ghost-button" href="{{ url_for('inicio') }}">Ir al inicio</a>
+    </div>
+
+    {% if mostrar_ayuda %}
+      <details class="error-ayuda">
+        <summary>¿Qué reviso?</summary>
+        <ol>
+          <li>Que los contenedores estén arriba: <code>docker compose ps</code></li>
+          <li>Que la API responda: <a href="{{ url_for('salud') }}">comprobar conexión</a></li>
+          <li>Si alguno está caído: <code>docker compose up -d</code></li>
+        </ol>
+      </details>
+    {% endif %}
+  </section>
+{% endblock %}

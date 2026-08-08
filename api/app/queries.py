@@ -102,12 +102,30 @@ def asignar_roles(connection: Connection, user_id: int, roles: list[str]) -> Non
 
 
 def usuario_disponible(connection: Connection, usuario: str, excluir_id: int | None = None) -> None:
+    """Comprueba que el nombre de usuario esté libre.
+
+    Los usuarios dados de baja conservan su nombre (se necesitan para el
+    historial de pedidos y pagos), así que el nombre sigue ocupado aunque no
+    aparezca en la lista. Sin decirlo, el administrador ve un "ya está
+    registrado" de un usuario que no encuentra por ningún lado.
+    """
     fila = connection.execute(
-        "SELECT id FROM terracota.usuarios WHERE lower(usuario) = lower(%s)",
+        "SELECT id, nombre, eliminado FROM terracota.usuarios WHERE lower(usuario) = lower(%s)",
         (usuario,),
     ).fetchone()
-    if fila and fila["id"] != excluir_id:
+    if not fila or fila["id"] == excluir_id:
+        return
+
+    if fila["eliminado"]:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"El usuario '{usuario}' ya está registrado.",
+            detail=(
+                f"'{usuario}' pertenece a {fila['nombre']}, que está dado de baja. "
+                "Actívalo de nuevo desde Usuarios marcando «Ver dados de baja», "
+                "o elige otro nombre de usuario."
+            ),
         )
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=f"El usuario '{usuario}' ya está registrado.",
+    )

@@ -5,25 +5,19 @@
     <h1>Reportes</h1>
   </section>
 
-  <form class="report-card" method="post" action="{{ url_for('exportar_reporte') }}"
-        data-confirm="¿Generar y descargar el reporte seleccionado?">
+  <form class="report-card" method="post" id="formularioReporte">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input id="tipoReporte" type="hidden" name="tipo_reporte" value="ventas">
 
-    <h2>Generar nuevo reporte</h2>
-    <span class="subtle">Tipo de reporte</span>
+    <h2>Generar reporte</h2>
+    <span class="subtle">Elige qué quieres reportar</span>
 
-    <div class="report-types">
-      {% for clave, icono, titulo, descripcion in [
-        ("ventas", "reporte-ventas.png", "Reporte de Ventas", "Ingresos, gastos y transacciones"),
-        ("usuarios", "reporte-usuarios.png", "Reporte de Usuarios", "Actividad y roles del personal"),
-        ("inventario", "reporte-inventario.png", "Reporte de Inventario", "Existencias y disponibilidad")
-      ] %}
+    <div class="report-types" id="tiposReporte">
+      {% for tipo in catalogo.tipos %}
         <button class="report-type {% if loop.first %}selected{% endif %}" type="button"
-                data-report="{{ clave }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">
-          <img src="{{ url_for('static', filename='img/' ~ icono) }}" alt="">
-          <strong>{{ titulo }}</strong>
-          <small>{{ descripcion }}</small>
+                data-report="{{ tipo.clave }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">
+          <strong>{{ tipo.nombre }}</strong>
+          <small>{{ tipo.descripcion }}</small>
         </button>
       {% endfor %}
     </div>
@@ -32,44 +26,41 @@
 
     <h3 class="section-icon-title">
       <img src="{{ url_for('static', filename='img/calendario.png') }}" alt="">
-      Rango de fechas
+      Filtros
     </h3>
-    <div class="form-grid compact" id="bloqueFechas">
-      <label>
+
+    <div class="form-grid compact" id="camposFiltro">
+      <label data-campo="fechas">
         <span>Fecha inicio</span>
-        <div class="date-input"><input id="fechaInicio" name="fecha_inicio" type="date" value="{{ fecha_inicio }}"></div>
+        <div class="date-input"><input name="fecha_inicio" type="date" value="{{ fecha_inicio }}"></div>
       </label>
-      <label>
+      <label data-campo="fechas">
         <span>Fecha fin</span>
-        <div class="date-input"><input id="fechaFin" name="fecha_fin" type="date" value="{{ fecha_fin }}"></div>
+        <div class="date-input"><input name="fecha_fin" type="date" value="{{ fecha_fin }}"></div>
       </label>
+      {# Los selects se generan desde el catálogo que devuelve la API. #}
     </div>
 
-    <h3>Filtros adicionales</h3>
-    <div class="form-grid compact">
-      <label>
-        <span id="etiquetaCategoria">Categoría</span>
-        <select id="categoriaReporte" name="categoria"></select>
-      </label>
-      <label>
-        <span>Estado</span>
-        <select id="estadoReporte" name="estado"></select>
-      </label>
-    </div>
-
-    <h3>Formato de exportación</h3>
+    <h3>¿Qué quieres hacer?</h3>
     <div class="export-actions">
+      <button class="primary" type="submit" formaction="{{ url_for('ver_reporte') }}">
+        Ver en pantalla
+      </button>
       <button class="file-button" type="submit" name="formato" value="pdf"
-              title="Exportar en PDF" aria-label="Exportar en PDF">
+              formaction="{{ url_for('exportar_reporte') }}"
+              title="Descargar en PDF" aria-label="Descargar en PDF">
         <img src="{{ url_for('static', filename='img/pdf.png') }}" alt="PDF">
       </button>
       <button class="file-button" type="submit" name="formato" value="xlsx"
-              title="Exportar en Excel" aria-label="Exportar en Excel">
+              formaction="{{ url_for('exportar_reporte') }}"
+              title="Descargar en Excel" aria-label="Descargar en Excel">
         <img src="{{ url_for('static', filename='img/xlsx.png') }}" alt="XLSX">
       </button>
     </div>
     <p class="export-hint" id="exportHint"></p>
   </form>
+
+  <script id="catalogoReportes" type="application/json">{{ catalogo | tojson }}</script>
 {% endblock %}
 
 {% block scripts %}

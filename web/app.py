@@ -89,7 +89,12 @@ def inyectar_layout():
 
 
 def manejar_errores_api(vista):
-    """Traduce cualquier ApiError en un flash + redirección, en vez de un 500."""
+    """Convierte cualquier ApiError en algo presentable, nunca en un 500.
+
+    Se distingue el error del usuario (filtros mal puestos, recurso que no
+    existe) de la caída del servicio: no es lo mismo "revisa las fechas" que
+    "la API no responde", y mostrar lo segundo cuando pasa lo primero confunde.
+    """
 
     @wraps(vista)
     def envoltura(*args, **kwargs):
@@ -98,11 +103,39 @@ def manejar_errores_api(vista):
         except ApiError as error:
             if error.es_sesion_invalida:
                 return _cerrar_sesion("Tu sesión expiró. Inicia sesión de nuevo.")
-            flash(error.mensaje, "error")
-            destino = request.referrer
-            if destino and destino != request.url:
-                return redirect(destino)
-            return redirect(url_for("inicio"))
+
+            codigo = error.status_code or 0
+            es_culpa_del_usuario = 400 <= codigo < 500
+
+            # POST: patrón post/redirect/get, para que recargar no reenvíe el formulario.
+            if request.method == "POST":
+                flash(error.mensaje, "error")
+                destino = request.referrer
+                if destino and destino != request.url:
+                    return redirect(destino)
+
+            # GET con filtros inválidos: se limpian los filtros y se reintenta.
+            # `request.path` conserva la ruta pero suelta la query, así que la
+            # segunda vuelta ya no puede fallar por lo mismo (no hay bucle).
+            if es_culpa_del_usuario and request.query_string:
+                flash(error.mensaje, "error")
+                return redirect(request.path)
+
+            # Resto: se pinta la página de error. En GET nunca se redirige,
+            # porque con la API caída el destino fallaría igual y el navegador
+            # acabaría en ERR_TOO_MANY_REDIRECTS en vez de mostrar el problema.
+            return render_template(
+                "error.html",
+                page_title="No se pudo mostrar",
+                active_page=None,
+                titulo="No se pudo cargar la información" if es_culpa_del_usuario
+                       else "El servicio no está disponible",
+                mensaje=error.mensaje,
+                detalle=None if es_culpa_del_usuario
+                        else f"La API configurada es {app.config['API_URL']}.",
+                mostrar_ayuda=not es_culpa_del_usuario,
+                reintentar=url_for("inicio") if es_culpa_del_usuario else request.url,
+            ), (codigo if es_culpa_del_usuario else 503)
 
     return envoltura
 
@@ -519,14 +552,57 @@ def eliminar_gasto(gasto_id: int):
 
 # ================================================================= reportes
 @app.get("/reportes")
+@manejar_errores_api
 def reportes():
     hoy = date.today()
     return render_template(
         "reportes.html",
         page_title="Reportes",
         active_page="reportes",
+        catalogo=api.opciones_reporte(token()),
         fecha_inicio=(hoy - timedelta(days=30)).isoformat(),
         fecha_fin=hoy.isoformat(),
+    )
+
+
+def _filtros_del_formulario() -> dict:
+    """Traduce el formulario a los parámetros de la API.
+
+    Los valores comodín ("Todos", "Todas") se omiten para que la API no filtre
+    por ellos, y `mesa` sólo viaja si de verdad es un número.
+    """
+    comodines = {"", "todos", "todas"}
+    crudo = {
+        "fecha_inicio": request.form.get("fecha_inicio"),
+        "fecha_fin": request.form.get("fecha_fin"),
+        "categoria": request.form.get("categoria"),
+        "estado": request.form.get("estado"),
+        "usuario": request.form.get("usuario"),
+        "metodo": request.form.get("metodo"),
+    }
+    filtros = {
+        clave: valor for clave, valor in crudo.items()
+        if valor and valor.strip().lower() not in comodines
+    }
+    mesa = _entero(request.form.get("mesa", ""))
+    if mesa is not None:
+        filtros["mesa"] = mesa
+    return filtros
+
+
+@app.post("/reportes/ver")
+@manejar_errores_api
+def ver_reporte():
+    """Muestra el reporte en pantalla antes de descargarlo."""
+    tipo = request.form.get("tipo_reporte", "ventas")
+    reporte = api.reporte(token(), tipo=tipo, **_filtros_del_formulario())
+    return render_template(
+        "reporte_vista.html",
+        page_title=reporte["titulo"],
+        active_page="reportes",
+        reporte=reporte,
+        tipo=tipo,
+        filtros=request.form.to_dict(),
     )
 
 
@@ -536,14 +612,7 @@ def exportar_reporte():
     tipo = request.form.get("tipo_reporte", "ventas")
     formato = request.form.get("formato", "pdf").lower()
 
-    reporte = api.reporte(
-        token(),
-        tipo=tipo,
-        fecha_inicio=request.form.get("fecha_inicio"),
-        fecha_fin=request.form.get("fecha_fin"),
-        categoria=request.form.get("categoria"),
-        estado=request.form.get("estado"),
-    )
+    reporte = api.reporte(token(), tipo=tipo, **_filtros_del_formulario())
 
     marca = datetime.now().strftime("%Y%m%d_%H%M")
     if formato == "xlsx":

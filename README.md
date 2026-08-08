@@ -149,12 +149,45 @@ interfaz: da igual desde dónde se intente.
 
 Estadísticas con gráficas · Gestión de pedidos con detalle e historial y
 cancelación · Usuarios (alta, edición, roles múltiples, baja y reactivación) ·
-Inventario (alta, edición, baja lógica, alertas de stock) · Gastos ·
-Reportes de ventas, usuarios e inventario exportables a **PDF y XLSX**.
+Inventario (alta, edición, baja lógica, alertas de stock) · Gastos · Reportes.
+
+### Reportes
+
+Se puede reportar **todo lo que el sistema registra**, tanto lo que ocurre en la
+app móvil como en el panel. Cada uno se puede ver en pantalla y descargar en
+**PDF** y **XLSX**:
+
+| Reporte | Qué contiene |
+|---|---|
+| **Ventas** | Resumen del periodo, ventas por día, por método de pago y detalle de transacciones |
+| **Pedidos** | Pedidos por estado, productividad por mesero, tiempos de entrega y renglones de cada pedido |
+| **Productos** | Catálogo del menú, ranking de más vendidos, desempeño por categoría y productos sin ventas |
+| **Inventario** | Existencias, alertas de reposición, valor del inventario y consumo del periodo |
+| **Tickets y cobros** | Corte de caja, cobros por cajero y detalle de cada ticket |
+| **Gastos** | Balance de ingresos contra egresos, por día y detalle de cada movimiento |
+| **Usuarios** | Personal por rol, actividad en el periodo y agrupación por estado |
+| **Mesas** | Estado actual y uso en el periodo (pedidos, importe, ticket promedio) |
+| **Auditoría** | Historial de estados de los pedidos y bitácora de cambios del sistema |
+
+Los filtros cambian según el reporte (fechas, categoría, estado, mesa, mesero,
+cajero, método de pago o rol). La lista de reportes la publica la API en
+`/administracion/reportes/opciones`, así que la web se arma sola: agregar un
+reporte en el backend lo hace aparecer en el panel sin tocar el frontend.
 
 ---
 
 ## 6. Pruebas
+
+**Antes de presentar**, con el stack levantado, esto comprueba de una pasada que
+los servicios responden, que **cada credencial de la tarjeta funciona**, que el
+flujo completo del negocio corre y que los nueve reportes se generan en ambos
+formatos:
+
+```bash
+web\.venv\Scripts\python.exe scripts\verificar_entrega.py
+```
+
+Pruebas unitarias de la API y revisión de estilo:
 
 ```bash
 cd api
@@ -162,6 +195,8 @@ pip install -r requirements-dev.txt
 pytest
 ruff check app tests
 ```
+
+Comprobación de sintaxis de la app móvil:
 
 ```bash
 cd movil
@@ -187,10 +222,12 @@ Terracota/
 ├── docker-compose.yml     Levanta base + API + web
 ├── .env.example           Puertos y contraseñas
 ├── CREDENCIALES.md        Tarjeta de credenciales
+├── scripts/               Verificador de entrega
 ├── database/              Esquema, permisos y prueba de flujo (SQL)
 ├── api/                   FastAPI: la única capa que toca PostgreSQL
 │   ├── app/routers/       auth · catalogos · mesero · cocina · caja
 │   │                      inventario · administracion
+│   ├── app/reportes.py    Los nueve reportes del sistema
 │   └── tests/             Pruebas unitarias
 ├── web/                   Flask: consume la API con `api_client.py`
 │   ├── templates/         Vistas Jinja
