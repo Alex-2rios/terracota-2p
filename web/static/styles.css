@@ -1392,18 +1392,47 @@ td {
 
 /* --------------------------------------------------- pantalla de reportes */
 .report-types {
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
 
+/* Estas tarjetas ya no llevan icono, así que la rejilla base de dos columnas
+   (36px para la imagen + texto) dejaba el título encima de la descripción.
+   Una sola columna, título arriba y descripción debajo. */
 .report-type {
-  align-items: flex-start;
-  gap: 6px;
-  min-height: 96px;
+  grid-template-columns: 1fr;
+  align-content: start;
+  gap: 8px;
+  min-height: 104px;
+  padding: 16px 18px;
   text-align: left;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.report-type strong {
+  display: block;
+  font-size: 15px;
+  line-height: 1.2;
 }
 
 .report-type small {
-  line-height: 1.35;
+  display: block;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.report-type:hover {
+  transform: translateY(-2px);
+}
+
+/* El borde de 2px del estado seleccionado movía la tarjeta: se compensa con
+   un borde transparente del mismo grosor en reposo. */
+.report-type {
+  border: 2px solid transparent;
+}
+
+.report-type.selected {
+  border-color: #54e983;
+  background: #fbfff6;
 }
 
 .export-actions {
