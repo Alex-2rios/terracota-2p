@@ -149,12 +149,36 @@ export async function login(usuario, password) {
   return datos;
 }
 
-/** Comprueba que el servidor responde, sin necesidad de estar autenticado. */
-export async function comprobarServidor() {
+/**
+ * Comprueba que el servidor responde, sin necesidad de estar autenticado.
+ *
+ * Lleva su propio corte de tiempo: con una IP equivocada pero enrutable (una
+ * cifra mal tecleada), `fetch` se queda esperando hasta un minuto y el botón
+ * "PROBAR" parecería colgado.
+ */
+export async function comprobarServidor(timeout = 8000) {
   const raiz = API_URL.replace(/\/api\/v1$/, '');
-  const respuesta = await fetch(`${raiz}/health`).catch(() => null);
-  if (!respuesta?.ok) throw new ApiError(`El servidor no responde en ${raiz}.`, 0);
-  return respuesta.json();
+  const controlador = new AbortController();
+  const alarma = setTimeout(() => controlador.abort(), timeout);
+
+  try {
+    const respuesta = await fetch(`${raiz}/health`, { signal: controlador.signal });
+    if (!respuesta.ok) {
+      throw new ApiError(`El servidor contestó ${respuesta.status} en ${raiz}.`, respuesta.status);
+    }
+    return await respuesta.json();
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    if (error.name === 'AbortError') {
+      throw new ApiError(
+        `Sin respuesta de ${raiz} en ${timeout / 1000} s. Revisa la IP y que el teléfono esté en la misma red Wi-Fi.`,
+        0,
+      );
+    }
+    throw new ApiError(`No se pudo conectar con ${raiz}.`, 0);
+  } finally {
+    clearTimeout(alarma);
+  }
 }
 
 export const terracotaApi = {

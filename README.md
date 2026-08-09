@@ -203,6 +203,11 @@ cd movil
 node verificar-sintaxis.js
 ```
 
+Para probar sobre una base **recién creada sin perder** los datos con los que
+estás trabajando, `docker-compose.prueba.yml` levanta un stack aislado en otros
+puertos (web `5010`, API `8090`, base `5443`). Las instrucciones están dentro
+del propio archivo.
+
 Para probar la API a mano, con el stack levantado abre
 <http://localhost:8080/docs>: Swagger permite autenticarse con el botón
 **Authorize** y lanzar cualquier endpoint desde el navegador.

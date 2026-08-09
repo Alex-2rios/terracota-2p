@@ -13,6 +13,7 @@ import secrets
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import wraps
+from xml.sax.saxutils import escape as escapar_xml
 
 import openpyxl
 from flask import (
@@ -697,6 +698,34 @@ def _leer_producto(form) -> tuple[dict, str | None]:
     }, None
 
 
+def _texto_pdf(valor) -> str:
+    """Prepara un texto para reportlab.
+
+    `Paragraph` interpreta un mini-HTML propio: sin escapar, un producto
+    llamado «Café < 200 ml» se imprime como «Café» porque todo lo que va entre
+    `<` y `>` se toma por una etiqueta y desaparece. Es pérdida de datos
+    silenciosa dentro de un documento que se entrega.
+    """
+    return escapar_xml(str(valor))
+
+
+# Excel evalúa como fórmula cualquier celda que empiece por uno de estos.
+INICIOS_DE_FORMULA = ("=", "+", "-", "@")
+
+
+def _escribir_celda(celda, valor) -> None:
+    """Escribe respetando el texto: un concepto como «=1+1» debe verse tal cual,
+    no evaluarse como fórmula (además de ser el vector clásico de inyección).
+
+    Al asignar `.value`, openpyxl marca por su cuenta como fórmula lo que
+    empieza por «=»; se corrige el tipo justo después. (`set_explicit_value`
+    ya no existe en openpyxl 3.1.)
+    """
+    celda.value = valor
+    if isinstance(valor, str) and valor.startswith(INICIOS_DE_FORMULA):
+        celda.data_type = "s"
+
+
 def _construir_pdf(reporte: dict) -> io.BytesIO:
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -722,17 +751,17 @@ def _construir_pdf(reporte: dict) -> io.BytesIO:
     )
 
     historia = [
-        Paragraph(reporte["titulo"], estilo_titulo),
-        Paragraph(f"Generado el {reporte['generado_en']} · Terracota cocina artesanal", estilo_sub),
+        Paragraph(_texto_pdf(reporte["titulo"]), estilo_titulo),
+        Paragraph(f"Generado el {_texto_pdf(reporte['generado_en'])} · Terracota cocina artesanal", estilo_sub),
     ]
 
     ancho_util = letter[0] - 60
     for seccion in reporte["secciones"]:
-        historia.append(Paragraph(seccion["titulo"], estilo_seccion))
+        historia.append(Paragraph(_texto_pdf(seccion["titulo"]), estilo_seccion))
         columnas = len(seccion["headers"])
-        datos = [[Paragraph(f"<b>{h}</b>", estilo_celda) for h in seccion["headers"]]]
+        datos = [[Paragraph(f"<b>{_texto_pdf(h)}</b>", estilo_celda) for h in seccion["headers"]]]
         for fila in seccion["rows"]:
-            datos.append([Paragraph(str(celda), estilo_celda) for celda in fila])
+            datos.append([Paragraph(_texto_pdf(celda), estilo_celda) for celda in fila])
 
         tabla = Table(datos, colWidths=[ancho_util / columnas] * columnas, repeatRows=1)
         tabla.setStyle(TableStyle([
@@ -782,7 +811,9 @@ def _construir_xlsx(reporte: dict) -> io.BytesIO:
 
         for fila in seccion["rows"]:
             for columna, valor in enumerate(fila, start=1):
-                hoja.cell(row=fila_actual, column=columna, value=valor).font = Font(name="Calibri", size=10)
+                celda = hoja.cell(row=fila_actual, column=columna)
+                _escribir_celda(celda, valor)
+                celda.font = Font(name="Calibri", size=10)
                 anchos[columna] = max(anchos.get(columna, 10), min(len(str(valor)) + 3, 50))
             fila_actual += 1
 

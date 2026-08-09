@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from psycopg import Connection
 from psycopg.types.json import Jsonb
 
@@ -17,10 +17,16 @@ ESTADOS_ACTIVOS = ("PENDIENTE", "PREPARANDO", "LISTO", "ENTREGADO")
 @router.get("/pedidos", summary="Listar Mis Pedidos")
 def list_my_orders(
     solo_activos: bool = False,
+    limite: int = Query(default=50, ge=1, le=500),
     user: CurrentUser = Depends(mesero_required),
     connection: Connection = Depends(get_connection),
 ) -> list[dict]:
-    """El mesero ve sus pedidos; el administrador ve los de todos."""
+    """El mesero ve sus pedidos; el administrador ve los de todos.
+
+    Se devuelven los más recientes y en cantidad limitada: la app los recarga
+    cada pocos segundos, y sin tope acabaría bajando el historial completo (con
+    todos sus renglones) en cada refresco. Para el histórico está el panel web.
+    """
     condiciones = []
     parametros: list = []
 
@@ -32,11 +38,13 @@ def list_my_orders(
         parametros.append(list(ESTADOS_ACTIVOS))
 
     where = f"WHERE {' AND '.join(condiciones)}" if condiciones else ""
+    parametros.append(limite)
     return connection.execute(
         f"""
         SELECT * FROM terracota.vista_pedidos_operativos
         {where}
         ORDER BY creado_en DESC
+        LIMIT %s
         """,
         parametros,
     ).fetchall()
