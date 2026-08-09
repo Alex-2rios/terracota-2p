@@ -1367,6 +1367,29 @@ td {
   transform: translateY(-2px);
 }
 
+/* ------------------------------- acción bloqueada (p. ej. producto en uso) */
+.icon-button.bloqueado {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.icon-button.bloqueado:hover {
+  background: #fbe3e4;
+  opacity: 0.7;
+}
+
+.chip-aviso {
+  background: #fdf0dc;
+  color: #7a4d10;
+  border: 1px solid #edd4a8;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.chip-aviso:hover {
+  background: #f8e4c4;
+}
+
 /* --------------------------------------------------- pantalla de reportes */
 .report-types {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));

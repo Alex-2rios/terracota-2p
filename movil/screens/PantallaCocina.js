@@ -246,6 +246,11 @@ function PanelInventario({
           <View style={styles.flex}>
             <Text style={styles.productName}>{producto.nombre}</Text>
             <Text style={styles.meta}>{producto.categoria} · mínimo {producto.stock_minimo}</Text>
+            {producto.en_pedidos_activos > 0 && (
+              <Text style={styles.enUso}>
+                En {producto.en_pedidos_activos} pedido(s) sin cerrar
+              </Text>
+            )}
           </View>
 
           {editando === producto.id ? (
@@ -450,6 +455,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  enUso: {
+    color: colores.warning,
+    fontSize: 10,
+    fontWeight: '900',
+    marginTop: 4,
   },
   stockValue: { alignItems: 'flex-end', gap: 6 },
   stockNumber: { color: colores.terracottaDark, fontSize: 22, fontWeight: '900' },

@@ -3,11 +3,28 @@ const message = document.getElementById("confirmMessage");
 const cancelButton = document.getElementById("cancelConfirm");
 const acceptButton = document.getElementById("acceptConfirm");
 
+const title = document.getElementById("confirmTitle");
+
 let pendingAction = null;
 
 function openConfirm(text, action) {
   pendingAction = action;
+  title.textContent = "Confirmar acción";
   message.textContent = text || "¿Deseas continuar?";
+  cancelButton.hidden = false;
+  acceptButton.textContent = "Confirmar";
+  overlay.classList.add("visible");
+  overlay.setAttribute("aria-hidden", "false");
+  acceptButton.focus();
+}
+
+/** Diálogo de un solo botón: informa, no pregunta. */
+function openInfo(heading, text) {
+  pendingAction = null;
+  title.textContent = heading;
+  message.textContent = text;
+  cancelButton.hidden = true;
+  acceptButton.textContent = "Entendido";
   overlay.classList.add("visible");
   overlay.setAttribute("aria-hidden", "false");
   acceptButton.focus();
@@ -17,7 +34,22 @@ function closeConfirm() {
   pendingAction = null;
   overlay.classList.remove("visible");
   overlay.setAttribute("aria-hidden", "true");
+  // Se restaura el estado por defecto: si no, el siguiente diálogo saldría
+  // sin botón de cancelar.
+  cancelButton.hidden = false;
+  acceptButton.textContent = "Confirmar";
+  title.textContent = "Confirmar acción";
 }
+
+// Acciones deshabilitadas: en vez de dejar al usuario intentarlo y fallar, el
+// botón explica por qué no se puede.
+document.addEventListener("click", (event) => {
+  const trigger = event.target.closest("[data-aviso]");
+  if (!trigger) return;
+
+  event.preventDefault();
+  openInfo(trigger.dataset.avisoTitulo || "No se puede realizar", trigger.dataset.aviso);
+});
 
 // Enlaces con confirmación
 document.addEventListener("click", (event) => {

@@ -689,11 +689,22 @@ BEGIN
   END IF;
 
   -- Al cancelar se devuelven las existencias al inventario.
+  --
+  -- Se agrupa por producto ANTES de sumar: en `UPDATE ... FROM`, si la tabla
+  -- de origen tiene varias filas que casan con la misma fila destino,
+  -- PostgreSQL aplica UNA sola y descarta el resto. Un pedido puede traer el
+  -- mismo producto en dos renglones (por ejemplo con observaciones distintas),
+  -- y sin agrupar se devolvería sólo uno de ellos: el inventario quedaría corto.
   IF estado_destino = 'CANCELADO' THEN
     UPDATE productos p
-       SET stock_actual = p.stock_actual + pd.cantidad
-    FROM pedido_detalles pd
-    WHERE pd.pedido_id = p_pedido_id AND p.id = pd.producto_id;
+       SET stock_actual = p.stock_actual + sub.cantidad
+    FROM (
+      SELECT producto_id, sum(cantidad) AS cantidad
+        FROM pedido_detalles
+       WHERE pedido_id = p_pedido_id
+       GROUP BY producto_id
+    ) sub
+    WHERE p.id = sub.producto_id;
   END IF;
 
   UPDATE pedidos
@@ -883,7 +894,15 @@ SELECT
     WHEN p.stock_actual = 0 THEN 'AGOTADO'
     WHEN p.stock_actual <= p.stock_minimo THEN 'BAJO'
     ELSE 'DISPONIBLE'
-  END AS estado
+  END AS estado,
+  -- En cuántos pedidos sin cerrar aparece. Mientras sea mayor que cero el
+  -- producto no puede darse de baja: se rompería un pedido en curso.
+  (SELECT count(*)
+     FROM pedido_detalles pd
+     JOIN pedidos pe ON pe.id = pd.pedido_id
+    WHERE pd.producto_id = p.id
+      AND pe.estado IN ('PENDIENTE', 'PREPARANDO', 'LISTO', 'ENTREGADO')
+  )::integer AS en_pedidos_activos
 FROM productos p
 JOIN categorias c ON c.id = p.categoria_id;
 

@@ -146,8 +146,49 @@ else:
         if revisar("caja lo cobra y emite ticket", r.status_code == 201, r.text[:120]):
             print(f"           folio emitido: {r.json()['folio']}")
 
+# -------------------------------------------------- reglas del inventario
+titulo("5. Reglas del inventario")
+if "mesero" in sesiones and libres and productos:
+    mesero = cabecera(sesiones["mesero"])
+    producto = requests.post(f"{API}/inventario/productos", headers=admin, timeout=10, json={
+        "nombre": f"Verificacion {int(__import__('time').time())}", "categoria": "Bebidas",
+        "precio": 20, "stock_actual": 30, "stock_minimo": 1}).json()
+
+    def existencias() -> int:
+        return requests.get(f"{API}/inventario/productos/{producto['id']}",
+                            headers=admin, timeout=10).json()["stock_actual"]
+
+    inicial = existencias()
+    mesas_ahora = [m for m in requests.get(f"{API}/catalogos/mesas", headers=mesero, timeout=10).json()
+                   if m["estado"] == "DISPONIBLE"]
+    if mesas_ahora:
+        # El mismo producto en dos renglones: así se detectó que al cancelar
+        # sólo se devolvía uno de ellos.
+        pedido = requests.post(f"{API}/mesero/pedidos", headers=mesero, timeout=15, json={
+            "mesa": mesas_ahora[0]["numero"],
+            "items": [{"producto_clave": producto["clave"], "cantidad": 3},
+                      {"producto_clave": producto["clave"], "cantidad": 4}]}).json()
+
+        revisar("se descuenta el stock al levantar el pedido",
+                existencias() == inicial - 7, f"{inicial} -> {existencias()}")
+
+        baja = requests.delete(f"{API}/inventario/productos/{producto['id']}", headers=admin, timeout=10)
+        revisar("no deja dar de baja un producto que está en un pedido",
+                baja.status_code == 409, f"HTTP {baja.status_code}")
+
+        requests.post(f"{API}/administracion/pedidos/{pedido['id']}/cancelar",
+                      headers=admin, json={"motivo": "Verificación de entrega"}, timeout=10)
+        revisar("al cancelar devuelve TODO el stock, incluso repetido",
+                existencias() == inicial, f"{inicial} -> {existencias()}")
+
+        baja = requests.delete(f"{API}/inventario/productos/{producto['id']}", headers=admin, timeout=10)
+        revisar("tras cancelar el pedido, ya se puede dar de baja",
+                baja.status_code == 200, f"HTTP {baja.status_code}")
+    else:
+        avisos.append("No quedaban mesas libres para comprobar las reglas de inventario.")
+
 # ------------------------------------------------------------------- reportes
-titulo("5. Reportes en PDF y XLSX")
+titulo("6. Reportes en PDF y XLSX")
 catalogo = requests.get(f"{API}/administracion/reportes/opciones", headers=admin, timeout=20).json()
 tipos = [t["clave"] for t in catalogo["tipos"]]
 print(f"  tipos disponibles: {', '.join(tipos)}\n")
@@ -171,7 +212,7 @@ else:
                 f"pdf={pdf.status_code} xlsx={xlsx.status_code}")
 
 # ---------------------------------------------------------------- pantallas
-titulo("6. Pantallas del panel")
+titulo("7. Pantallas del panel")
 for ruta, senal in [("/inicio", "Estadísticas"), ("/pedidos", "Gestión de Pedidos"),
                     ("/usuarios", "Gestión de Usuarios"), ("/inventario", "Gestión de Inventario"),
                     ("/gastos", "Gastos del negocio"), ("/reportes", "Generar reporte")]:

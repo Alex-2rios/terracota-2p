@@ -153,33 +153,57 @@ def update_product(
     return get_producto(connection, product_id)
 
 
-@router.delete("/productos/{product_id}", summary="Dar de Baja un Producto")
-def delete_product(
+@router.get("/productos/{product_id}/pedidos-activos", summary="Pedidos que Bloquean la Baja")
+def blocking_orders(
     product_id: int,
     _: CurrentUser = Depends(inventario_required),
     connection: Connection = Depends(get_connection),
-) -> dict:
-    """Baja lógica: el producto desaparece del menú pero los pedidos históricos
-    y los reportes siguen mostrándolo."""
-    producto = get_producto(connection, product_id)
-
-    activos = connection.execute(
+) -> list[dict]:
+    """Pedidos sin cerrar en los que aparece el producto."""
+    get_producto(connection, product_id, incluir_eliminados=True)
+    return connection.execute(
         """
-        SELECT count(*)::integer AS total
+        SELECT DISTINCT p.id, m.numero AS mesa, p.estado, u.nombre AS mesero
         FROM terracota.pedido_detalles pd
         JOIN terracota.pedidos p ON p.id = pd.pedido_id
+        JOIN terracota.mesas m ON m.id = p.mesa_id
+        JOIN terracota.usuarios u ON u.id = p.mesero_id
         WHERE pd.producto_id = %s
           AND p.estado IN ('PENDIENTE', 'PREPARANDO', 'LISTO', 'ENTREGADO')
+        ORDER BY p.id
         """,
         (product_id,),
-    ).fetchone()["total"]
+    ).fetchall()
 
-    if activos:
+
+@router.delete("/productos/{product_id}", summary="Dar de Baja un Producto")
+def delete_product(
+    product_id: int,
+    user: CurrentUser = Depends(inventario_required),
+    connection: Connection = Depends(get_connection),
+) -> dict:
+    """Baja lógica: el producto desaparece del menú, pero los pedidos históricos
+    y los reportes lo siguen mostrando.
+
+    No se permite si el producto está en un pedido sin cerrar: se quedaría un
+    pedido en curso apuntando a algo que ya no existe en la carta. Hay que
+    terminarlo (cobrarlo) o cancelarlo primero.
+    """
+    producto = get_producto(connection, product_id)
+    bloqueantes = blocking_orders(product_id, user, connection)
+
+    if bloqueantes:
+        detalle = ", ".join(
+            f"#{p['id']} (mesa {p['mesa']}, {p['estado']})" for p in bloqueantes[:5]
+        )
+        if len(bloqueantes) > 5:
+            detalle += f" y {len(bloqueantes) - 5} más"
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"'{producto['nombre']}' está en {activos} pedido(s) en curso. "
-                "Termina o cancela esos pedidos antes de darlo de baja."
+                f"No se puede dar de baja «{producto['nombre']}»: está en "
+                f"{len(bloqueantes)} pedido(s) sin cerrar — {detalle}. "
+                "Cobra o cancela esos pedidos y vuelve a intentarlo."
             ),
         )
 
@@ -187,7 +211,7 @@ def delete_product(
         "UPDATE terracota.productos SET eliminado = true, disponible = false WHERE id = %s",
         (product_id,),
     )
-    return {"status": "ok", "mensaje": f"'{producto['nombre']}' se dio de baja del menú."}
+    return {"status": "ok", "mensaje": f"«{producto['nombre']}» se dio de baja del menú."}
 
 
 @router.patch("/productos/{product_id}/suministro", summary="Ajustar Existencias")
