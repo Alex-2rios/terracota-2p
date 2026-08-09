@@ -33,6 +33,9 @@ venv/
 /ios
 /android
 
+# Documentación: se mantiene en local, fuera del repositorio.
+*.md
+
 # Sistema y editores
 .DS_Store
 Thumbs.db
