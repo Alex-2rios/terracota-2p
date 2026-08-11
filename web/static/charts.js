@@ -4,13 +4,17 @@
   const contenedor = document.getElementById("datosGraficas");
   if (!contenedor) return;
 
-  let datos;
-  try {
-    datos = JSON.parse(contenedor.textContent);
-  } catch (error) {
-    console.error("No se pudieron leer los datos de las gráficas", error);
-    return;
+  function leerDatos() {
+    try {
+      return JSON.parse(contenedor.textContent);
+    } catch (error) {
+      console.error("No se pudieron leer los datos de las gráficas", error);
+      return null;
+    }
   }
+
+  let datos = leerDatos();
+  if (!datos) return;
 
   const PALETA = ["#a14f33", "#73351f", "#d4ad88", "#8a6b5c", "#c98663"];
   const TINTA = "#3b1c13";
@@ -191,6 +195,11 @@
   }
 
   function dibujar() {
+    datos = leerDatos() || datos;
+
+    SERIES.ganancias.valores = datos.ganancias;
+    SERIES.gastos.valores = datos.gastos;
+
     const ventas = document.getElementById("salesChart");
     if (ventas) {
       barrasAgrupadas(ventas, datos.ventas, seriesVisibles());
@@ -220,6 +229,8 @@
   }
 
   dibujar();
+
+  document.addEventListener("panel:actualizado", dibujar);
 
   let temporizador;
   window.addEventListener("resize", () => {

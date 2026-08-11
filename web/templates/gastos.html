@@ -44,31 +44,33 @@
       <h2>Gastos del periodo <small class="subtle">({{ gastos|length }})</small></h2>
       <strong class="total-pill">Total: {{ total }}</strong>
     </div>
-    <table class="data-table">
-      <thead>
-        <tr><th>Fecha</th><th>Concepto</th><th>Monto</th><th>Registrado por</th><th>Acciones</th></tr>
-      </thead>
-      <tbody>
-        {% for gasto in gastos %}
-          <tr>
-            <td>{{ gasto.fecha }}</td>
-            <td><strong>{{ gasto.concepto }}</strong></td>
-            <td>${{ "{:,.2f}".format(gasto.monto|float) }}</td>
-            <td>{{ gasto.registrado_por }}</td>
-            <td class="actions-cell">
-              <form method="post" action="{{ url_for('eliminar_gasto', gasto_id=gasto.id) }}"
-                    data-confirm="¿Eliminar el gasto «{{ gasto.concepto }}»?">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="icon-button" aria-label="Eliminar gasto" title="Eliminar">
-                  <img src="{{ url_for('static', filename='img/eliminar.png') }}" alt="">
-                </button>
-              </form>
-            </td>
-          </tr>
-        {% else %}
-          <tr><td colspan="5" class="empty-row">No hay gastos en el periodo seleccionado.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Fecha</th><th>Concepto</th><th>Monto</th><th>Registrado por</th><th>Acciones</th></tr>
+        </thead>
+        <tbody>
+          {% for gasto in gastos %}
+            <tr>
+              <td>{{ gasto.fecha }}</td>
+              <td><strong>{{ gasto.concepto }}</strong></td>
+              <td>${{ "{:,.2f}".format(gasto.monto|float) }}</td>
+              <td>{{ gasto.registrado_por }}</td>
+              <td class="actions-cell">
+                <form method="post" action="{{ url_for('eliminar_gasto', gasto_id=gasto.id) }}"
+                      data-confirm="¿Eliminar el gasto «{{ gasto.concepto }}»?">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button type="submit" class="icon-button" aria-label="Eliminar gasto" title="Eliminar">
+                    <img src="{{ url_for('static', filename='img/eliminar.png') }}" alt="">
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5" class="empty-row">No hay gastos en el periodo seleccionado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </section>
 {% endblock %}

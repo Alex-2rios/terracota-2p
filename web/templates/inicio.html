@@ -5,14 +5,16 @@
     <h1>Estadísticas</h1>
   </section>
 
-  {% if bajo_stock %}
-    <div class="alert alert-warning" role="status">
-      Hay <strong>{{ bajo_stock }}</strong> producto(s) con stock bajo o agotado.
-      <a href="{{ url_for('inventario') }}">Revisar inventario</a>
-    </div>
-  {% endif %}
+  <div data-live="avisos">
+    {% if bajo_stock %}
+      <div class="alert alert-warning" role="status">
+        Hay <strong>{{ bajo_stock }}</strong> producto(s) con stock bajo o agotado.
+        <a href="{{ url_for('inventario') }}">Revisar inventario</a>
+      </div>
+    {% endif %}
+  </div>
 
-  <section class="metrics-grid">
+  <section class="metrics-grid" data-live="metricas">
     {% for metric in metrics %}
       <article class="metric-card">
         <img src="{{ url_for('static', filename='img/' ~ metric.icon) }}" alt="">
@@ -56,36 +58,39 @@
       <h2>Pedidos recientes</h2>
       <a class="ghost-button" href="{{ url_for('pedidos') }}">Ver todos</a>
     </div>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Folio</th><th>Mesa</th><th>Mesero</th><th>Total</th><th>Hora</th><th>Estado</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for pedido in pedidos %}
+    <div class="table-wrap" data-live="pedidos-recientes">
+      <table class="data-table">
+        <thead>
           <tr>
-            <td><strong>#{{ pedido.id }}</strong></td>
-            <td>Mesa {{ pedido.mesa }}</td>
-            <td>{{ pedido.mesero }}</td>
-            <td><strong>${{ "{:,.2f}".format(pedido.total|float) }}</strong></td>
-            <td>{{ pedido.hora }}</td>
-            <td>
-              <span class="status-badge {% if pedido.estado == 'PAGADO' %}ok{% elif pedido.estado == 'CANCELADO' %}muted{% else %}process{% endif %}">
-                {{ pedido.estado }}
-              </span>
-            </td>
+            <th>Folio</th><th>Mesa</th><th>Mesero</th><th>Total</th><th>Hora</th><th>Estado</th>
           </tr>
-        {% else %}
-          <tr><td colspan="6" class="empty-row">Todavía no hay pedidos registrados.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for pedido in pedidos %}
+            <tr>
+              <td><strong>#{{ pedido.id }}</strong></td>
+              <td>Mesa {{ pedido.mesa }}</td>
+              <td>{{ pedido.mesero }}</td>
+              <td><strong>${{ "{:,.2f}".format(pedido.total|float) }}</strong></td>
+              <td>{{ pedido.hora }}</td>
+              <td>
+                <span class="status-badge {% if pedido.estado == 'PAGADO' %}ok{% elif pedido.estado == 'CANCELADO' %}muted{% else %}process{% endif %}">
+                  {{ pedido.estado }}
+                </span>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6" class="empty-row">Todavía no hay pedidos registrados.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </section>
 {% endblock %}
 
 {% block scripts %}
-  <script id="datosGraficas" type="application/json">
+
+  <script id="datosGraficas" type="application/json" data-live="datos-graficas">
     {{ {
          "ventas": chart_sales|map(attribute='dia_semana')|list,
          "ganancias": chart_sales|map(attribute='ganancias')|map('float')|list,
