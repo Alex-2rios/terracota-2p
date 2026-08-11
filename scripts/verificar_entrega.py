@@ -14,6 +14,7 @@ Requiere `requests` (viene en el entorno de la web):
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 
@@ -22,9 +23,9 @@ try:
 except ImportError:
     sys.exit("Falta la librería `requests`. Instálala con: pip install requests")
 
-API = "http://localhost:8080/api/v1"
-RAIZ_API = "http://localhost:8080"
-WEB = "http://localhost:5000"
+RAIZ_API = os.environ.get("TERRACOTA_API", "http://localhost:8080").rstrip("/")
+API = f"{RAIZ_API}/api/v1"
+WEB = os.environ.get("TERRACOTA_WEB", "http://localhost:5000").rstrip("/")
 
 CREDENCIALES = [
     ("admin", "Admin123!", "administrador"),
