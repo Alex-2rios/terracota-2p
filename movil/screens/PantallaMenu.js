@@ -37,12 +37,18 @@ export default function PantallaMenu() {
   const [avisosCancelacion, setAvisosCancelacion] = useState([]);
   const cancelacionesVistas = useRef(null);
 
+  const datosCargados = useRef(false);
+
   const peticionActual = useRef(0);
 
   const cerrarSesion = useCallback((mensaje) => {
     limpiarSesionApi();
     setSesion(null);
     setPantalla('inicio');
+
+    setAvisosCancelacion([]);
+    cancelacionesVistas.current = null;
+    datosCargados.current = false;
     setPedidos([]);
     setPedidosCaja([]);
     setTickets([]);
@@ -107,6 +113,8 @@ export default function PantallaMenu() {
         setVentasHoy(ventasApi);
       }
       setAviso(null);
+
+      datosCargados.current = true;
     } catch (error) {
       if (peticionActual.current === idPeticion) manejarError(error, silencioso);
     } finally {
@@ -130,7 +138,8 @@ export default function PantallaMenu() {
   }, [cargarDatos, sesion]);
 
   useEffect(() => {
-    if (!sesion || rol !== 'mesero') return;
+
+    if (!sesion || rol !== 'mesero' || !datosCargados.current) return;
 
     const operativas = pedidos.filter((pedido) => pedido.estado === 'CANCELADO');
 
