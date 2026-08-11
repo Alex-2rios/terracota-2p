@@ -1,23 +1,16 @@
-import { Platform } from 'react-native';
 
-const IP_POR_DEFECTO = Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1';
+
+const SERVIDOR_PRODUCCION = 'https://servidor-docker.tailfb6291.ts.net:8443/api/v1';
 
 const normalizar = (url) => String(url || '').trim().replace(/\/+$/, '');
 
-let API_URL = normalizar(process.env.EXPO_PUBLIC_API_URL) || `http://${IP_POR_DEFECTO}:8080/api/v1`;
+const API_URL = normalizar(process.env.EXPO_PUBLIC_API_URL) || SERVIDOR_PRODUCCION;
 
 let sesion = null;
 
-export function getApiUrl() {
-  return API_URL;
-}
-
-export function setApiUrl(url) {
-  const limpia = normalizar(url);
-  if (!limpia) throw new Error('Escribe una dirección válida.');
-  if (!/^https?:\/\
-  API_URL = limpia.endsWith('/api/v1') ? limpia : `${limpia}/api/v1`;
-  return API_URL;
+export function urlImagen(nombreArchivo) {
+  if (!nombreArchivo) return null;
+  return `${API_URL.replace(/\/api\/v1$/, '')}/media/${nombreArchivo}`;
 }
 
 export function getSession() {
@@ -158,6 +151,8 @@ export const terracotaApi = {
   productos: () => request('/catalogos/productos'),
 
   pedidosMesero: () => request('/mesero/pedidos'),
+
+  liberarMesa: (numero) => request(`/mesero/mesas/${numero}/liberar`, { method: 'POST' }),
   crearPedido: (pedido) => request('/mesero/pedidos', { method: 'POST', body: JSON.stringify(pedido) }),
   entregarPedido: (id) => request(`/mesero/pedidos/${id}/entregar`, {
     method: 'PATCH',
