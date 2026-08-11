@@ -59,6 +59,15 @@ def create_order(
         "SELECT id FROM terracota.crear_pedido(%s, %s, %s, %s)",
         (payload.mesa, user.id, Jsonb(items), payload.notas),
     ).fetchone()
+
+    connection.execute(
+        """
+        UPDATE terracota.pedidos SET requiere_retoma = false
+         WHERE requiere_retoma
+           AND mesa_id = (SELECT id FROM terracota.mesas WHERE numero = %s)
+        """,
+        (payload.mesa,),
+    )
     return get_order(connection, creado["id"])
 
 @router.get("/pedidos/{order_id}", summary="Ver Detalle de Pedido")
@@ -99,3 +108,32 @@ def deliver_order(
         (order_id, user.id, payload.comentario),
     ).fetchone()
     return get_order(connection, order_id)
+
+@router.post("/mesas/{numero}/liberar", summary="Liberar Mesa tras una Cancelación")
+def release_table(
+    numero: int,
+    user: CurrentUser = Depends(mesero_required),
+    connection: Connection = Depends(get_connection),
+) -> dict:
+    """Cierra una retoma pendiente cuando el cliente se retira.
+
+    Tras una cancelación operativa la mesa queda ocupada a propósito, porque el
+    cliente sigue ahí. Si finalmente se va sin volver a pedir, el mesero lo
+    indica aquí y la mesa vuelve a estar disponible.
+    """
+    actualizados = connection.execute(
+        """
+        UPDATE terracota.pedidos SET requiere_retoma = false
+         WHERE requiere_retoma
+           AND mesa_id = (SELECT id FROM terracota.mesas WHERE numero = %s)
+        RETURNING id
+        """,
+        (numero,),
+    ).fetchall()
+
+    if not actualizados:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"La mesa {numero} no tiene ninguna orden pendiente de retomar.",
+        )
+    return {"status": "ok", "mensaje": f"Mesa {numero} liberada."}

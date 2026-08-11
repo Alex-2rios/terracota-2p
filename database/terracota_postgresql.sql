@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS productos (
   categoria_id smallint NOT NULL REFERENCES categorias(id) ON DELETE RESTRICT,
   nombre varchar(120) NOT NULL,
   descripcion varchar(250),
+
+  imagen varchar(160),
   precio numeric(12,2) NOT NULL,
   stock_actual integer NOT NULL DEFAULT 50,
   stock_minimo integer NOT NULL DEFAULT 15,
@@ -67,6 +69,8 @@ CREATE TABLE IF NOT EXISTS productos (
   CONSTRAINT productos_stock_minimo_valido CHECK (stock_minimo >= 0),
   CONSTRAINT productos_clave_formato CHECK (clave ~ '^[a-z0-9-]+$')
 );
+
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen varchar(160);
 
 CREATE INDEX IF NOT EXISTS productos_categoria_idx ON productos(categoria_id);
 CREATE INDEX IF NOT EXISTS productos_vigentes_idx ON productos(eliminado, disponible);
@@ -283,7 +287,9 @@ BEGIN
        SET estado = CASE WHEN EXISTS (
          SELECT 1 FROM pedidos p
           WHERE p.mesa_id = mesa_anterior
-            AND p.estado IN ('PENDIENTE', 'PREPARANDO', 'LISTO', 'ENTREGADO')
+            AND (p.estado IN ('PENDIENTE', 'PREPARANDO', 'LISTO', 'ENTREGADO')
+
+               OR (p.estado = 'CANCELADO' AND p.requiere_retoma))
        ) THEN 'OCUPADA' ELSE 'DISPONIBLE' END
      WHERE id = mesa_anterior AND estado <> 'FUERA_SERVICIO';
   END IF;
@@ -293,7 +299,9 @@ BEGIN
        SET estado = CASE WHEN EXISTS (
          SELECT 1 FROM pedidos p
           WHERE p.mesa_id = mesa_actual
-            AND p.estado IN ('PENDIENTE', 'PREPARANDO', 'LISTO', 'ENTREGADO')
+            AND (p.estado IN ('PENDIENTE', 'PREPARANDO', 'LISTO', 'ENTREGADO')
+
+               OR (p.estado = 'CANCELADO' AND p.requiere_retoma))
        ) THEN 'OCUPADA' ELSE 'DISPONIBLE' END
      WHERE id = mesa_actual AND estado <> 'FUERA_SERVICIO';
   END IF;
@@ -371,6 +379,15 @@ DROP TRIGGER IF EXISTS pedidos_validar_transicion_trg ON pedidos;
 CREATE TRIGGER pedidos_validar_transicion_trg BEFORE UPDATE OF estado ON pedidos
 FOR EACH ROW EXECUTE FUNCTION fn_validar_transicion_pedido();
 
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cancelacion_origen varchar(12);
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cancelacion_motivo varchar(250);
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS requiere_retoma boolean NOT NULL DEFAULT false;
+
+DO $$ BEGIN
+  ALTER TABLE pedidos ADD CONSTRAINT pedidos_cancelacion_origen_valido
+    CHECK (cancelacion_origen IS NULL OR cancelacion_origen IN ('CLIENTE', 'OPERATIVA'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
 DROP TRIGGER IF EXISTS pedidos_actualizado_en_trg ON pedidos;
 CREATE TRIGGER pedidos_actualizado_en_trg BEFORE UPDATE ON pedidos
 FOR EACH ROW EXECUTE FUNCTION fn_actualizar_timestamp();
@@ -380,7 +397,7 @@ CREATE TRIGGER pedidos_historial_trg AFTER INSERT OR UPDATE OF estado ON pedidos
 FOR EACH ROW EXECUTE FUNCTION fn_historial_estado_pedido();
 
 DROP TRIGGER IF EXISTS pedidos_sincronizar_mesa_trg ON pedidos;
-CREATE TRIGGER pedidos_sincronizar_mesa_trg AFTER INSERT OR UPDATE OF estado, mesa_id OR DELETE ON pedidos
+CREATE TRIGGER pedidos_sincronizar_mesa_trg AFTER INSERT OR UPDATE OF estado, mesa_id, requiere_retoma OR DELETE ON pedidos
 FOR EACH ROW EXECUTE FUNCTION fn_sincronizar_estado_mesa();
 
 DROP TRIGGER IF EXISTS pedido_detalles_totales_trg ON pedido_detalles;
@@ -571,7 +588,16 @@ BEGIN
     RAISE EXCEPTION 'La mesa % no existe o está inactiva.', p_numero_mesa
       USING ERRCODE = 'invalid_parameter_value';
   END IF;
-  IF mesa_registro.estado <> 'DISPONIBLE' THEN
+  IF mesa_registro.estado = 'FUERA_SERVICIO' THEN
+    RAISE EXCEPTION 'La mesa % está fuera de servicio.', p_numero_mesa
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pedidos p
+     WHERE p.mesa_id = mesa_registro.id
+       AND p.estado IN ('PENDIENTE', 'PREPARANDO', 'LISTO', 'ENTREGADO')
+  ) THEN
     RAISE EXCEPTION 'La mesa % ya tiene un pedido activo.', p_numero_mesa
       USING ERRCODE = 'unique_violation';
   END IF;
@@ -780,6 +806,10 @@ SELECT
   p.impuesto,
   p.total,
   p.notas,
+
+  p.cancelacion_origen,
+  p.cancelacion_motivo,
+  p.requiere_retoma,
   p.creado_en,
   p.entregado_en,
   COALESCE(sum(pd.cantidad), 0)::integer AS cantidad_productos,
@@ -846,6 +876,7 @@ SELECT
   p.clave,
   p.nombre,
   p.descripcion,
+  p.imagen,
   c.clave AS categoria_clave,
   c.nombre AS categoria,
   p.precio,

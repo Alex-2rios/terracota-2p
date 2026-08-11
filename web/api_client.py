@@ -122,6 +122,52 @@ class TerracotaApi:
     def actualizar_producto(self, token: str, product_id: int, payload: dict) -> dict:
         return self._request("PATCH", f"/inventario/productos/{product_id}", token=token, json=payload)
 
+    def subir_imagen_producto(self, token: str, product_id: int, archivo) -> dict:
+        """Reenvía a la API la foto que llegó por el formulario.
+
+        Se manda como multipart, igual que la recibió Flask, sin escribirla en
+        disco: el panel no almacena nada, sólo hace de puente.
+        """
+        try:
+            respuesta = requests.put(
+                f"{self.base_url}/inventario/productos/{product_id}/imagen",
+                headers={"Accept": "application/json", "Authorization": f"Bearer {token}"},
+                files={"archivo": (archivo.filename, archivo.stream, archivo.mimetype)},
+                timeout=max(self.timeout, 30.0),
+            )
+        except requests.Timeout:
+            raise ApiError("La API tardó demasiado al recibir la imagen.") from None
+        except requests.ConnectionError:
+            raise ApiError(f"No se pudo conectar con la API en {self.base_url}.") from None
+
+        try:
+            cuerpo = respuesta.json()
+        except ValueError:
+            cuerpo = None
+        if not respuesta.ok:
+            raise ApiError(_detalle(cuerpo, respuesta), respuesta.status_code)
+        return cuerpo
+
+    def quitar_imagen_producto(self, token: str, product_id: int) -> dict:
+        return self._request("DELETE", f"/inventario/productos/{product_id}/imagen", token=token)
+
+    def imagen_producto(self, token: str, nombre: str) -> tuple[bytes, str]:
+        """Descarga una foto de la API. Devuelve el contenido y su tipo MIME."""
+        try:
+            respuesta = requests.get(
+                f"{self.root_url}/media/{nombre}",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=self.timeout,
+            )
+        except requests.Timeout:
+            raise ApiError("La API tardó demasiado al enviar la imagen.") from None
+        except requests.ConnectionError:
+            raise ApiError(f"No se pudo conectar con la API en {self.base_url}.") from None
+
+        if not respuesta.ok:
+            raise ApiError("La imagen no existe.", respuesta.status_code)
+        return respuesta.content, respuesta.headers.get("Content-Type", "image/png")
+
     def eliminar_producto(self, token: str, product_id: int) -> dict:
         return self._request("DELETE", f"/inventario/productos/{product_id}", token=token)
 
@@ -137,10 +183,12 @@ class TerracotaApi:
     def pedido(self, token: str, pedido_id: int) -> dict:
         return self._request("GET", f"/administracion/pedidos/{pedido_id}", token=token)
 
-    def cancelar_pedido(self, token: str, pedido_id: int, motivo: str) -> dict:
+    def cancelar_pedido(self, token: str, pedido_id: int, motivo: str,
+                        cliente_en_mesa: bool = False) -> dict:
+        """`cliente_en_mesa` decide si la mesa queda libre o pendiente de retomar."""
         return self._request(
-            "POST", f"/administracion/pedidos/{pedido_id}/cancelar",
-            token=token, json={"motivo": motivo},
+            "POST", f"/administracion/pedidos/{pedido_id}/cancelar", token=token,
+            json={"motivo": motivo, "cliente_en_mesa": cliente_en_mesa},
         )
 
     def gastos(self, token: str, **filtros) -> list[dict]:

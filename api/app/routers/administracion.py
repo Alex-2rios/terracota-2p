@@ -8,7 +8,7 @@ from psycopg import Connection
 
 from .. import reportes
 from ..database import get_connection
-from ..dependencies import CurrentUser, require_roles
+from ..dependencies import CurrentUser, get_current_user, require_roles
 from ..queries import asignar_roles, get_usuario, usuario_disponible, validar_roles
 from ..schemas import (
     ESTADOS_PEDIDO,
@@ -216,6 +216,7 @@ def list_orders(
     return connection.execute(
         f"""
         SELECT p.id, m.numero AS mesa, u.nombre AS mesero, p.total, p.estado,
+               p.cancelacion_origen, p.cancelacion_motivo, p.requiere_retoma,
                COALESCE(t.folio, '-') AS folio,
                to_char(p.creado_en AT TIME ZONE '{TZ}', 'YYYY-MM-DD HH24:MI') AS fecha
         FROM terracota.pedidos p
@@ -278,19 +279,85 @@ def get_order_detail(
     ).fetchall()
     return pedido
 
+ROLES_QUE_CANCELAN = {
+    "PENDIENTE": {"mesero", "cocina", "caja", "administrador"},
+    "PREPARANDO": {"cocina", "caja", "administrador"},
+    "LISTO": {"caja", "administrador"},
+    "ENTREGADO": {"caja", "administrador"},
+}
+
+ORIGEN_POR_ROL = {"mesero": "CLIENTE"}
+
 @router.post("/pedidos/{order_id}/cancelar", summary="Cancelar Pedido")
 def cancel_order(
     order_id: int,
     payload: CancelarPedido,
-    user: CurrentUser = Depends(admin_required),
+    user: CurrentUser = Depends(get_current_user),
     connection: Connection = Depends(get_connection),
 ) -> dict:
-    """Cancela y devuelve las existencias al inventario (lo hace la función SQL)."""
+    """Cancela y devuelve las existencias al inventario (lo hace la función SQL).
+
+    Si la cancelación es operativa, la mesa NO se libera: el cliente sigue ahí
+    y queda marcada para que el mesero vuelva a tomarle la orden.
+    """
+    pedido = connection.execute(
+        "SELECT id, estado, mesero_id FROM terracota.pedidos WHERE id = %s",
+        (order_id,),
+    ).fetchone()
+    if pedido is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado.")
+
+    permitidos = ROLES_QUE_CANCELAN.get(pedido["estado"])
+    if permitidos is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Un pedido {pedido['estado'].lower()} ya no se puede cancelar.",
+        )
+    if user.roles.isdisjoint(permitidos):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"Con el pedido en {pedido['estado']} sólo pueden cancelar: "
+            f"{', '.join(sorted(permitidos))}.",
+        )
+    es_admin = "administrador" in user.roles
+    if "mesero" in user.roles and not es_admin and pedido["mesero_id"] != user.id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Sólo puedes cancelar los pedidos que tú levantaste.",
+        )
+
+    rol_principal = next((r for r in ("mesero", "cocina", "caja") if r in user.roles), "administrador")
+    origen = payload.origen or ORIGEN_POR_ROL.get(rol_principal, "OPERATIVA")
+
+    cliente_en_mesa = payload.cliente_en_mesa
+    if cliente_en_mesa is None:
+        cliente_en_mesa = origen == "OPERATIVA"
+
+    connection.execute(
+        """
+        UPDATE terracota.pedidos
+           SET cancelacion_origen = %s,
+               cancelacion_motivo = %s,
+               requiere_retoma = %s
+         WHERE id = %s
+        """,
+        (origen, payload.motivo, cliente_en_mesa, order_id),
+    )
     connection.execute(
         "SELECT id FROM terracota.cambiar_estado_pedido(%s, 'CANCELADO', %s, %s)",
-        (order_id, user.id, payload.motivo or "Cancelado por el administrador."),
+        (order_id, user.id, payload.motivo),
     ).fetchone()
-    return {"status": "ok", "mensaje": f"Pedido #{order_id} cancelado y stock restablecido."}
+
+    return {
+        "status": "ok",
+        "origen": origen,
+        "requiere_retoma": cliente_en_mesa,
+        "mensaje": (
+            f"Pedido #{order_id} cancelado y stock restablecido."
+            + (" La mesa sigue ocupada: hay que volver a tomar la orden."
+               if cliente_en_mesa else " La mesa queda libre.")
+        ),
+    }
 
 @router.get("/gastos", summary="Listar Gastos")
 def list_expenses(

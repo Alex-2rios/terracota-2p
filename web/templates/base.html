@@ -54,6 +54,20 @@
       <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
         <h2 id="confirmTitle">Confirmar acción</h2>
         <p id="confirmMessage">¿Deseas continuar?</p>
+
+        <label class="confirm-motivo" id="confirmMotivoCampo" hidden>
+          <span id="confirmMotivoEtiqueta">Motivo</span>
+          <textarea id="confirmMotivo" rows="2" maxlength="250"
+                    placeholder="Explica brevemente por qué"></textarea>
+          <small id="confirmMotivoError" class="confirm-motivo-error" hidden>
+            Escribe al menos unas palabras.
+          </small>
+        </label>
+
+        <label class="confirm-pregunta" id="confirmPreguntaCampo" hidden>
+          <input type="checkbox" id="confirmPregunta">
+          <span id="confirmPreguntaTexto">El cliente sigue en la mesa</span>
+        </label>
         <div class="confirm-actions">
           <button class="ghost-button" type="button" id="cancelConfirm">Cancelar</button>
           <button class="primary" type="button" id="acceptConfirm">Confirmar</button>
@@ -63,5 +77,7 @@
 
     <script src="{{ url_for('static', filename='confirm.js') }}"></script>
     {% block scripts %}{% endblock %}
+
+    <script src="{{ url_for('static', filename='live.js') }}"></script>
   </body>
 </html>

@@ -34,55 +34,63 @@
 
   <section class="panel large-panel">
     <div class="panel-head">
-      <h2>Listado de pedidos <small class="subtle">({{ pedidos|length }})</small></h2>
+      <h2>Listado de pedidos <small class="subtle" data-live="conteo-pedidos">({{ pedidos|length }})</small></h2>
       <div class="search">
         <span>⌕</span>
         <input id="pedidosSearch" type="search" placeholder="Buscar pedido..." oninput="filtrarPedidos()">
       </div>
     </div>
-    <table class="data-table" id="pedidosTable">
-      <thead>
-        <tr>
-          <th>ID</th><th>Folio</th><th>Mesa</th><th>Mesero</th>
-          <th>Total</th><th>Fecha / Hora</th><th>Estado</th><th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for pedido in pedidos %}
+    <div class="table-wrap" data-live="pedidos">
+      <table class="data-table" id="pedidosTable">
+        <thead>
           <tr>
-            <td><strong>#{{ pedido.id }}</strong></td>
-            <td>{{ pedido.folio }}</td>
-            <td>Mesa {{ pedido.mesa }}</td>
-            <td>{{ pedido.mesero }}</td>
-            <td><strong>${{ "{:,.2f}".format(pedido.total|float) }}</strong></td>
-            <td>{{ pedido.fecha }}</td>
-            <td>
-              <span class="status-badge {% if pedido.estado in ('PAGADO', 'ENTREGADO') %}ok{% elif pedido.estado == 'CANCELADO' %}muted{% else %}process{% endif %}">
-                {{ pedido.estado }}
-              </span>
-            </td>
-            <td class="actions-cell">
-              <button type="button" class="icon-button" aria-label="Ver detalle del pedido {{ pedido.id }}"
-                      onclick="cargarDetalle({{ pedido.id }})" title="Ver detalle">
-                <img src="{{ url_for('static', filename='img/pedidos.png') }}" alt="">
-              </button>
-              {% if pedido.estado not in ('PAGADO', 'CANCELADO') %}
-                <form method="post"
-                      action="{{ url_for('cancelar_pedido', pedido_id=pedido.id, **request.args.to_dict()) }}"
-                      data-confirm="¿Cancelar el pedido #{{ pedido.id }}? Los productos regresarán al inventario.">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                  <button type="submit" class="icon-button" aria-label="Cancelar pedido {{ pedido.id }}" title="Cancelar pedido">
-                    <img src="{{ url_for('static', filename='img/eliminar.png') }}" alt="">
-                  </button>
-                </form>
-              {% endif %}
-            </td>
+            <th>ID</th><th>Folio</th><th>Mesa</th><th>Mesero</th>
+            <th>Total</th><th>Fecha / Hora</th><th>Estado</th><th>Acciones</th>
           </tr>
-        {% else %}
-          <tr><td colspan="8" class="empty-row">No hay pedidos en el rango seleccionado.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for pedido in pedidos %}
+            <tr>
+              <td><strong>#{{ pedido.id }}</strong></td>
+              <td>{{ pedido.folio }}</td>
+              <td>Mesa {{ pedido.mesa }}</td>
+              <td>{{ pedido.mesero }}</td>
+              <td><strong>${{ "{:,.2f}".format(pedido.total|float) }}</strong></td>
+              <td>{{ pedido.fecha }}</td>
+              <td>
+                <span class="status-badge {% if pedido.estado in ('PAGADO', 'ENTREGADO') %}ok{% elif pedido.estado == 'CANCELADO' %}muted{% else %}process{% endif %}">
+                  {{ pedido.estado }}
+                </span>
+                {% if pedido.estado == 'CANCELADO' and pedido.cancelacion_motivo %}
+                  <small class="motivo-cancelacion"
+                         title="{{ pedido.cancelacion_motivo }}">{{ pedido.cancelacion_motivo }}</small>
+                {% endif %}
+              </td>
+              <td class="actions-cell">
+                <button type="button" class="icon-button" aria-label="Ver detalle del pedido {{ pedido.id }}"
+                        onclick="cargarDetalle({{ pedido.id }})" title="Ver detalle">
+                  <img class="icono-detalle" src="{{ url_for('static', filename='img/pedidos.png') }}" alt="">
+                </button>
+                {% if pedido.estado not in ('PAGADO', 'CANCELADO') %}
+                  <form method="post"
+                        action="{{ url_for('cancelar_pedido', pedido_id=pedido.id, **request.args.to_dict()) }}"
+                        data-confirm="¿Cancelar el pedido #{{ pedido.id }}? Los productos regresarán al inventario."
+                        data-motivo="Motivo de la cancelación"
+                        data-pregunta="El cliente sigue en la mesa (hay que volver a tomarle la orden)">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="icon-button" aria-label="Cancelar pedido {{ pedido.id }}" title="Cancelar pedido">
+                      <img src="{{ url_for('static', filename='img/eliminar.png') }}" alt="">
+                    </button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="8" class="empty-row">No hay pedidos en el rango seleccionado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
     <div class="pagination" id="pedidosPagination"></div>
   </section>
 
@@ -125,15 +133,33 @@
   <script>
     const ROWS_PER_PAGE = 8;
     let currentPage = 1;
-    const tbody = document.querySelector('#pedidosTable tbody');
-    const allRows = Array.from(tbody.querySelectorAll('tr'));
-    let filteredRows = [...allRows];
+    let allRows = [];
+    let filteredRows = [];
+
+    /*
+     * Vuelve a leer las filas de la tabla. Es necesario porque la
+     * actualización en vivo sustituye el <tbody> por nodos nuevos: las
+     * referencias anteriores quedarían apuntando a filas que ya no están en
+     * el documento y la paginación dejaría de responder.
+     */
+    function indexarFilas() {
+      const tbody = document.querySelector('#pedidosTable tbody');
+      allRows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+      aplicarBusqueda();
+    }
+
+    // Reaplica el texto que el usuario ya tenía escrito, para no perder su
+    // filtro cuando entra un pedido nuevo.
+    function aplicarBusqueda() {
+      const campo = document.getElementById('pedidosSearch');
+      const query = (campo ? campo.value : '').toLowerCase();
+      filteredRows = allRows.filter((row) => row.textContent.toLowerCase().includes(query));
+      renderPage();
+    }
 
     function filtrarPedidos() {
-      const query = document.getElementById('pedidosSearch').value.toLowerCase();
-      filteredRows = allRows.filter((row) => row.textContent.toLowerCase().includes(query));
       currentPage = 1;
-      renderPage();
+      aplicarBusqueda();
     }
 
     function renderPage() {
@@ -237,6 +263,11 @@
     modal.addEventListener('click', (event) => { if (event.target === modal) cerrarModal(); });
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') cerrarModal(); });
 
-    renderPage();
+    indexarFilas();
+
+    // Cada vez que entran pedidos nuevos hay que reindexar. `renderPage` ya
+    // ajusta la página si se quedó fuera de rango, así que se conserva en cuál
+    // estaba el usuario.
+    document.addEventListener('panel:actualizado', indexarFilas);
   </script>
 {% endblock %}

@@ -43,7 +43,20 @@ class CambioEstado(BaseModel):
 
 class CancelarPedido(BaseModel):
     model_config = {"title": "CancelarPedido"}
-    motivo: Optional[str] = Field(default=None, max_length=250)
+
+    motivo: str = Field(min_length=4, max_length=250)
+
+    origen: Optional[Literal["CLIENTE", "OPERATIVA"]] = None
+
+    cliente_en_mesa: Optional[bool] = None
+
+    @field_validator("motivo")
+    @classmethod
+    def motivo_con_contenido(cls, value: str) -> str:
+        limpio = value.strip()
+        if len(limpio) < 4:
+            raise ValueError("Explica brevemente por qué se cancela el pedido.")
+        return limpio
 
 class PagoCreate(BaseModel):
     model_config = {"title": "CrearPago"}

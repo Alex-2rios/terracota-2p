@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import secrets
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -17,7 +18,8 @@ from xml.sax.saxutils import escape as escapar_xml
 
 import openpyxl
 from flask import (
-    Flask, flash, jsonify, redirect, render_template, request, send_file, session, url_for,
+    Flask, Response, abort, flash, jsonify, redirect, render_template, request,
+    send_file, session, url_for,
 )
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -79,6 +81,7 @@ def inyectar_layout():
         "admin_email": session.get("usuario", ""),
         "csrf_token": session.get("csrf_token", ""),
         "anio_actual": date.today().year,
+        "media_url": "/media",
     }
 
 def manejar_errores_api(vista):
@@ -172,12 +175,29 @@ def login():
 
     return render_template(
         "login.html", page_title="Iniciar Sesión", hide_nav=True,
-        api_url=app.config["API_URL"], estado_api=estado_api,
+        estado_api=estado_api,
     )
 
 @app.post("/salir")
 def salir():
     return _cerrar_sesion("Sesión cerrada correctamente.", "success")
+
+NOMBRE_IMAGEN = re.compile(r"^[a-z0-9][a-z0-9._-]{0,158}\.(png|jpg|jpeg|webp)$", re.I)
+
+@app.get("/media/<nombre>")
+@manejar_errores_api
+def media(nombre: str):
+    """Sirve las fotos de producto haciendo de intermediario con la API.
+
+    El navegador no puede resolver la dirección interna de la API
+    (`http://api:8080`), que sólo existe dentro de la red de Docker. Pasando por
+    aquí las imágenes se ven sin exponer la API ni añadir configuración.
+    """
+    if not NOMBRE_IMAGEN.match(nombre):
+        abort(404)
+
+    contenido, tipo = api.imagen_producto(token(), nombre)
+    return Response(contenido, mimetype=tipo, headers={"Cache-Control": "public, max-age=300"})
 
 @app.get("/salud")
 def salud():
@@ -254,8 +274,9 @@ def detalle_pedido(pedido_id: int):
 @app.post("/pedidos/<int:pedido_id>/cancelar")
 @manejar_errores_api
 def cancelar_pedido(pedido_id: int):
-    motivo = request.form.get("motivo", "").strip() or "Cancelado por el administrador desde el panel web."
-    resultado = api.cancelar_pedido(token(), pedido_id, motivo)
+    motivo = request.form.get("motivo", "").strip()
+    cliente_en_mesa = request.form.get("cliente_en_mesa") == "1"
+    resultado = api.cancelar_pedido(token(), pedido_id, motivo, cliente_en_mesa)
     flash(resultado.get("mensaje", "Pedido cancelado."), "success")
     return redirect(url_for("pedidos", **request.args.to_dict()))
 
@@ -402,6 +423,18 @@ def inventario():
         incluir_eliminados=incluir,
     )
 
+def _guardar_foto(product_id: int) -> None:
+    """Sube la foto del formulario, si el usuario eligió alguna.
+
+    El panel no guarda nada en disco: reenvía el archivo a la API, que es quien
+    lo valida y lo almacena.
+    """
+    archivo = request.files.get("imagen")
+    if archivo and archivo.filename:
+        api.subir_imagen_producto(token(), product_id, archivo)
+    elif request.form.get("quitar_imagen") == "1":
+        api.quitar_imagen_producto(token(), product_id)
+
 @app.route("/inventario/nuevo", methods=["GET", "POST"])
 @manejar_errores_api
 def agregar_producto():
@@ -413,7 +446,8 @@ def agregar_producto():
             flash(error, "error")
             return redirect(url_for("agregar_producto"))
 
-        api.crear_producto(token(), datos)
+        creado = api.crear_producto(token(), datos)
+        _guardar_foto(creado["id"])
         flash("Producto creado correctamente.", "success")
         return redirect(url_for("inventario"))
 
@@ -442,6 +476,7 @@ def editar_producto(product_id: int):
             return redirect(url_for("editar_producto", product_id=product_id))
 
         api.actualizar_producto(token(), product_id, datos)
+        _guardar_foto(product_id)
         flash("Producto actualizado correctamente.", "success")
         return redirect(url_for("inventario"))
 
