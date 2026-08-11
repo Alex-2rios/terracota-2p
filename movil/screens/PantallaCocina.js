@@ -9,6 +9,7 @@ import {
   EstadoVacio,
   EtiquetaEstado,
   Icono,
+  DialogoCancelar,
   MarcoTelefono,
   MensajeAviso,
   TituloConRegreso,
@@ -31,6 +32,7 @@ export default function PantallaCocina({
   inventario,
   alCambiarEstado,
   alAjustarSuministro,
+  alCancelarPedido,
   cargando,
   aviso,
   alRefrescar,
@@ -40,6 +42,8 @@ export default function PantallaCocina({
   const [busqueda, setBusqueda] = useState('');
   const [busquedaStock, setBusquedaStock] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [pedidoACancelar, setPedidoACancelar] = useState(null);
+  const [cancelando, setCancelando] = useState(false);
 
   const pedidoSeleccionado = pedidos.find((pedido) => pedido.id === idPedidoSeleccionado) || null;
   const etapa = pedidoSeleccionado?.estado || 'PENDIENTE';
@@ -57,6 +61,20 @@ export default function PantallaCocina({
     setIdPedidoSeleccionado(pedido.id);
     setPantallaRegreso(pantalla);
     cambiarPantalla('detalle');
+  };
+
+  const confirmarCancelacion = async (motivo, clienteEnMesa) => {
+    setCancelando(true);
+    try {
+      await alCancelarPedido(pedidoACancelar.id, motivo, clienteEnMesa);
+      setPedidoACancelar(null);
+      avisar.exito('Pedido cancelado', 'Los productos regresaron al inventario.');
+      cambiarPantalla('inicio');
+    } catch (error) {
+      avisar.error('No se pudo cancelar', error.message);
+    } finally {
+      setCancelando(false);
+    }
   };
 
   const avanzarPedido = async () => {
@@ -126,6 +144,15 @@ export default function PantallaCocina({
             <Text>{cantidadArticulos(pedidoSeleccionado)} productos</Text>
           </View>
 
+          {etapa !== 'LISTO' && (
+            <TouchableOpacity
+              style={styles.cancelarPedido}
+              onPress={() => setPedidoACancelar(pedidoSeleccionado)}
+              activeOpacity={0.8}>
+              <Text style={styles.cancelarPedidoTexto}>NO SE PUEDE PREPARAR · CANCELAR</Text>
+            </TouchableOpacity>
+          )}
+
           <View style={styles.progressCard}>
             <Text style={styles.progressTitle}>Progreso del pedido</Text>
             <View style={styles.steps}>
@@ -159,7 +186,8 @@ export default function PantallaCocina({
           </View>
 
           {etapa !== 'LISTO' ? (
-            <View style={styles.actionRow}>
+            <>
+              <View style={styles.actionRow}>
               <TouchableOpacity style={styles.backButton} onPress={() => cambiarPantalla(pantallaRegreso)}>
                 <Text style={styles.backButtonText}>REGRESAR</Text>
               </TouchableOpacity>
@@ -171,7 +199,8 @@ export default function PantallaCocina({
                   {enviando ? 'GUARDANDO...' : etapa === 'PENDIENTE' ? 'INICIAR PREP.' : 'MARCAR LISTO'}
                 </Text>
               </TouchableOpacity>
-            </View>
+              </View>
+            </>
           ) : (
             <>
               <Text style={styles.notice}>Pedido listo: el mesero ya puede entregarlo</Text>
@@ -195,6 +224,14 @@ export default function PantallaCocina({
           aviso={aviso}
         />
       )}
+
+      <DialogoCancelar
+        visible={Boolean(pedidoACancelar)}
+        pedido={pedidoACancelar}
+        enviando={cancelando}
+        alCerrar={() => setPedidoACancelar(null)}
+        alConfirmar={confirmarCancelacion}
+      />
     </MarcoTelefono>
   );
 }
@@ -435,6 +472,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 26,
   },
+  cancelarPedido: {
+    alignItems: 'center',
+    borderColor: '#B3261E',
+    borderRadius: 21,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  cancelarPedidoTexto: { color: '#B3261E', fontSize: 11, fontWeight: '900' },
   backButtonCenter: {
     alignSelf: 'center',
     width: 150,

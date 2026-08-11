@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -369,6 +370,89 @@ export function ImagenProducto({ tipo = 'bebida', uri }) {
     <View style={[styles.productImage, tipo === 'bolsa' && styles.productBag]}>
       <Icono icono={tipo === 'bolsa' ? 'bolsa' : 'producto'} tono="light" tamaño={tipo === 'bolsa' ? 39 : 35} />
     </View>
+  );
+}
+
+export function DialogoCancelar({ visible, pedido, alCerrar, alConfirmar, enviando }) {
+  const [motivo, setMotivo] = React.useState('');
+  const [clienteEnMesa, setClienteEnMesa] = React.useState(true);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    if (visible) {
+      setMotivo('');
+      setClienteEnMesa(true);
+      setError(null);
+    }
+  }, [visible]);
+
+  if (!visible || !pedido) return null;
+
+  const confirmar = () => {
+    const limpio = motivo.trim();
+    if (limpio.length < 4) {
+      setError('Explica brevemente por qué se cancela.');
+      return;
+    }
+    alConfirmar(limpio, clienteEnMesa);
+  };
+
+  return (
+    <Modal transparent animationType="fade" visible onRequestClose={alCerrar} statusBarTranslucent>
+      <View style={styles.dlgFondo}>
+        <View style={styles.dlgCaja}>
+          <Text style={styles.dlgTitulo}>Cancelar pedido #{pedido.id}</Text>
+          <Text style={styles.dlgTexto}>
+            Mesa {pedido.mesa} · se devolverán los productos al inventario.
+          </Text>
+
+          <Text style={styles.dlgEtiqueta}>Motivo</Text>
+          <TextInput
+            style={styles.dlgCampo}
+            value={motivo}
+            onChangeText={(valor) => { setMotivo(valor); setError(null); }}
+            placeholder="Por ejemplo: se acabó un ingrediente"
+            placeholderTextColor="#B89D8C"
+            multiline
+            maxLength={250}
+          />
+          {error ? <Text style={styles.dlgError}>{error}</Text> : null}
+
+          <TouchableOpacity
+            style={styles.dlgCasilla}
+            onPress={() => setClienteEnMesa(!clienteEnMesa)}
+            activeOpacity={0.8}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: clienteEnMesa }}>
+            <View style={[styles.dlgMarca, clienteEnMesa && styles.dlgMarcaActiva]}>
+              {clienteEnMesa ? <Text style={styles.dlgMarcaTexto}>✓</Text> : null}
+            </View>
+            <Text style={styles.dlgCasillaTexto}>
+              El cliente sigue en la mesa{'\n'}
+              <Text style={styles.dlgCasillaNota}>
+                {clienteEnMesa
+                  ? 'La mesa seguirá ocupada para volver a tomarle la orden.'
+                  : 'La mesa quedará libre.'}
+              </Text>
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.dlgAcciones}>
+            <TouchableOpacity style={styles.dlgVolver} onPress={alCerrar} activeOpacity={0.8}>
+              <Text style={styles.dlgVolverTexto}>VOLVER</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.dlgConfirmar, enviando && styles.dlgConfirmarInactivo]}
+              onPress={enviando ? undefined : confirmar}
+              activeOpacity={0.8}>
+              <Text style={styles.dlgConfirmarTexto}>
+                {enviando ? 'CANCELANDO...' : 'CANCELAR PEDIDO'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -775,6 +859,55 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colores.white,
   },
+  dlgFondo: {
+    flex: 1,
+    backgroundColor: 'rgba(30, 18, 12, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  dlgCaja: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: colores.white,
+    borderRadius: 18,
+    padding: 22,
+  },
+  dlgTitulo: { color: colores.ink, fontSize: 18, fontWeight: '900' },
+  dlgTexto: { color: colores.muted, fontSize: 12, marginTop: 4, marginBottom: 16 },
+  dlgEtiqueta: { color: colores.ink, fontSize: 11, fontWeight: '900', marginBottom: 6 },
+  dlgCampo: {
+    borderWidth: 1,
+    borderColor: colores.line,
+    borderRadius: 8,
+    color: colores.ink,
+    fontSize: 14,
+    minHeight: 64,
+    padding: 10,
+    textAlignVertical: 'top',
+  },
+  dlgError: { color: '#B3261E', fontSize: 11, marginTop: 6 },
+  dlgCasilla: { alignItems: 'flex-start', flexDirection: 'row', gap: 10, marginTop: 16 },
+  dlgMarca: {
+    width: 22, height: 22, borderRadius: 5, borderWidth: 2,
+    borderColor: colores.terracotta, alignItems: 'center', justifyContent: 'center',
+  },
+  dlgMarcaActiva: { backgroundColor: colores.terracotta },
+  dlgMarcaTexto: { color: colores.white, fontSize: 13, fontWeight: '900' },
+  dlgCasillaTexto: { color: colores.ink, flex: 1, fontSize: 13, fontWeight: '700' },
+  dlgCasillaNota: { color: colores.muted, fontSize: 11, fontWeight: '400' },
+  dlgAcciones: { flexDirection: 'row', gap: 10, marginTop: 22 },
+  dlgVolver: {
+    flex: 1, height: 42, borderRadius: 21, borderWidth: 1,
+    borderColor: colores.muted, alignItems: 'center', justifyContent: 'center',
+  },
+  dlgVolverTexto: { color: colores.muted, fontSize: 11, fontWeight: '900' },
+  dlgConfirmar: {
+    flex: 2, height: 42, borderRadius: 21, backgroundColor: '#B3261E',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  dlgConfirmarInactivo: { opacity: 0.6 },
+  dlgConfirmarTexto: { color: colores.white, fontSize: 11, fontWeight: '900' },
   productImage: {
     width: 42,
     height: 45,

@@ -154,6 +154,12 @@ export const terracotaApi = {
 
   liberarMesa: (numero) => request(`/mesero/mesas/${numero}/liberar`, { method: 'POST' }),
   crearPedido: (pedido) => request('/mesero/pedidos', { method: 'POST', body: JSON.stringify(pedido) }),
+
+  cancelarPedido: (id, motivo, clienteEnMesa) => request(`/administracion/pedidos/${id}/cancelar`, {
+    method: 'POST',
+    body: JSON.stringify({ motivo, cliente_en_mesa: Boolean(clienteEnMesa) }),
+  }),
+
   entregarPedido: (id) => request(`/mesero/pedidos/${id}/entregar`, {
     method: 'PATCH',
     body: JSON.stringify({ estado: 'ENTREGADO' }),

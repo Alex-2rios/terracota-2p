@@ -9,6 +9,7 @@ import {
   EstadoVacio,
   EtiquetaEstado,
   FilaAcciones,
+  DialogoCancelar,
   ImagenProducto,
   MarcoTelefono,
   MensajeAviso,
@@ -32,6 +33,7 @@ export default function PantallaMesero({
   alCrearPedido,
   mesasPorRetomar,
   alLiberarMesa,
+  alCancelarPedido,
   alEntregarPedido,
   alCerrarSesion,
   cargando,
@@ -47,6 +49,8 @@ export default function PantallaMesero({
   const [idPedidoSeleccionado, setIdPedidoSeleccionado] = useState(null);
   const [pantallaRegresoDetalle, setPantallaRegresoDetalle] = useState('estado');
   const [enviando, setEnviando] = useState(false);
+  const [pedidoACancelar, setPedidoACancelar] = useState(null);
+  const [cancelando, setCancelando] = useState(false);
 
   const mesasFiltradas = useMemo(() => {
     const consulta = busquedaMesa.trim();
@@ -186,6 +190,20 @@ export default function PantallaMesero({
       avisar.error('No se pudo crear el pedido', error.message);
     } finally {
       setEnviando(false);
+    }
+  };
+
+  const confirmarCancelacion = async (motivo, clienteEnMesa) => {
+    setCancelando(true);
+    try {
+      await alCancelarPedido(pedidoACancelar.id, motivo, clienteEnMesa);
+      setPedidoACancelar(null);
+      avisar.exito('Pedido cancelado', 'Los productos regresaron al inventario.');
+      cambiarPantalla(pantallaRegresoDetalle);
+    } catch (error) {
+      avisar.error('No se pudo cancelar', error.message);
+    } finally {
+      setCancelando(false);
     }
   };
 
@@ -436,6 +454,16 @@ export default function PantallaMesero({
         <Contenido alRefrescar={alRefrescar} refrescando={cargando}>
           <TituloConRegreso titulo="Detalle del pedido" alRegresar={() => cambiarPantalla(pantallaRegresoDetalle)} />
           <Text style={styles.mesaTag}>MESA: {pedidoSeleccionado.mesa}</Text>
+
+          {pedidoSeleccionado.estado === 'PENDIENTE' && (
+            <TouchableOpacity
+              style={styles.cancelarPedido}
+              onPress={() => setPedidoACancelar(pedidoSeleccionado)}
+              activeOpacity={0.8}>
+              <Text style={styles.cancelarPedidoTexto}>CANCELAR ESTE PEDIDO</Text>
+            </TouchableOpacity>
+          )}
+
           <View style={styles.detailCard}>
             <View style={styles.detailHeader}>
               <ImagenProducto tipo="bolsa" />
@@ -481,6 +509,14 @@ export default function PantallaMesero({
           )}
         </Contenido>
       )}
+
+      <DialogoCancelar
+        visible={Boolean(pedidoACancelar)}
+        pedido={pedidoACancelar}
+        enviando={cancelando}
+        alCerrar={() => setPedidoACancelar(null)}
+        alConfirmar={confirmarCancelacion}
+      />
     </MarcoTelefono>
   );
 }
@@ -594,6 +630,16 @@ const styles = StyleSheet.create({
   totalLine: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   fullButton: { backgroundColor: '#8F6651', height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   disabledButton: { opacity: 0.45 },
+  cancelarPedido: {
+    alignItems: 'center',
+    borderColor: '#B3261E',
+    borderRadius: 21,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  cancelarPedidoTexto: { color: '#B3261E', fontSize: 11, fontWeight: '900' },
   fullButtonText: { color: colores.surface, fontSize: 10, fontWeight: '900' },
   mesaTag: { alignSelf: 'flex-start', backgroundColor: '#D6A783', color: colores.surface, fontWeight: '900', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4, marginBottom: 18, overflow: 'hidden' },
   summaryCard: { backgroundColor: '#FFFDF8', borderRadius: 10, padding: 10, marginBottom: 14, shadowColor: colores.shadow, shadowOpacity: 0.08, shadowRadius: 7, shadowOffset: { width: 0, height: 3 }, elevation: 1 },

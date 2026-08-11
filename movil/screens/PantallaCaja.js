@@ -9,6 +9,7 @@ import {
   EstadoVacio,
   FilaAcciones,
   Icono,
+  DialogoCancelar,
   ImagenProducto,
   Logo,
   MarcoTelefono,
@@ -28,6 +29,7 @@ export default function PantallaCaja({
   tickets,
   ventasHoy,
   alRegistrarPago,
+  alCancelarPedido,
   cargando,
   aviso,
   alRefrescar,
@@ -40,6 +42,8 @@ export default function PantallaCaja({
   const [busquedaTicket, setBusquedaTicket] = useState('');
   const [busquedaPedido, setBusquedaPedido] = useState('');
   const [cobrando, setCobrando] = useState(false);
+  const [pedidoACancelar, setPedidoACancelar] = useState(null);
+  const [cancelando, setCancelando] = useState(false);
 
   const pedidosFiltrados = useMemo(() => {
     const termino = busquedaPedido.trim().toLocaleLowerCase('es-MX');
@@ -68,6 +72,20 @@ export default function PantallaCaja({
     setMetodo('Efectivo');
     setMontoRecibido('');
     cambiarPantalla('pago');
+  };
+
+  const confirmarCancelacion = async (motivo, clienteEnMesa) => {
+    setCancelando(true);
+    try {
+      await alCancelarPedido(pedidoACancelar.id, motivo, clienteEnMesa);
+      setPedidoACancelar(null);
+      avisar.exito('Pedido cancelado', 'Los productos regresaron al inventario.');
+      cambiarPantalla('pedidos');
+    } catch (error) {
+      avisar.error('No se pudo cancelar', error.message);
+    } finally {
+      setCancelando(false);
+    }
   };
 
   const confirmarPago = async () => {
@@ -193,6 +211,12 @@ export default function PantallaCaja({
                 </View>
               </View>
 
+              <TouchableOpacity
+                style={styles.cancelarPedido}
+                onPress={() => setPedidoACancelar(pedidoSeleccionado)}
+                activeOpacity={0.8}>
+                <Text style={styles.cancelarPedidoTexto}>CANCELAR ESTE PEDIDO</Text>
+              </TouchableOpacity>
               <Text style={styles.sectionTitle}>Método de pago</Text>
               {metodosPago.map((item) => (
                 <TouchableOpacity
@@ -417,6 +441,13 @@ export default function PantallaCaja({
           </TouchableOpacity>
         </Contenido>
       )}
+      <DialogoCancelar
+        visible={Boolean(pedidoACancelar)}
+        pedido={pedidoACancelar}
+        enviando={cancelando}
+        alCerrar={() => setPedidoACancelar(null)}
+        alConfirmar={confirmarCancelacion}
+      />
     </MarcoTelefono>
   );
 }
@@ -454,6 +485,16 @@ const styles = StyleSheet.create({
   metaLarge: { color: colores.ink, fontSize: 12, fontWeight: '900' },
   total: { color: colores.terracottaDark, fontSize: 15, fontWeight: '900' },
   payButton: { backgroundColor: colores.terracotta, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 6 },
+  cancelarPedido: {
+    alignItems: 'center',
+    borderColor: '#B3261E',
+    borderRadius: 21,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    marginTop: 14,
+  },
+  cancelarPedidoTexto: { color: '#B3261E', fontSize: 11, fontWeight: '900' },
   payButtonText: { color: colores.surface, fontSize: 9, fontWeight: '900' },
   paySummary: { ...tarjeta, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, marginBottom: 20 },
   sectionTitle: { color: colores.ink, fontSize: 12, fontWeight: '900', marginBottom: 12, marginTop: 6 },

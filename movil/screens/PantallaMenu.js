@@ -210,6 +210,14 @@ export default function PantallaMenu() {
     return ticket;
   }, [cargarDatos]);
 
+  const cancelarPedido = useCallback(async (id, motivo, clienteEnMesa) => {
+    const resultado = await terracotaApi.cancelarPedido(id, motivo, clienteEnMesa);
+
+    if (cancelacionesVistas.current) cancelacionesVistas.current.add(id);
+    await cargarDatos({ silencioso: true });
+    return resultado;
+  }, [cargarDatos]);
+
   const liberarMesa = useCallback(async (numero) => {
     await terracotaApi.liberarMesa(numero);
     avisar.exito('Mesa liberada', `La mesa ${numero} vuelve a estar disponible.`);
@@ -240,6 +248,11 @@ export default function PantallaMenu() {
     cargando,
     aviso,
     alRefrescar: () => cargarDatos(),
+
+    alCancelarPedido: cancelarPedido,
+    alLiberarMesa: liberarMesa,
+    mesasPorRetomar,
+    avisosPendientes: avisosCancelacion.length,
   };
 
   if (!sesion) {
