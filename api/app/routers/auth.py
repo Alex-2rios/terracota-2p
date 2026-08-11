@@ -11,9 +11,7 @@ from ..queries import get_usuario
 from ..schemas import TokenResponse, UserIdentity
 from ..security import create_access_token, login_throttle
 
-
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
-
 
 @router.post("/token", response_model=TokenResponse, summary="Iniciar Sesión")
 def login(
@@ -76,7 +74,6 @@ def login(
         expira_en_minutos=settings.access_token_minutes,
         usuario=identidad,
     )
-
 
 @router.get("/me", response_model=UserIdentity, summary="Sesión Actual")
 def sesion_actual(

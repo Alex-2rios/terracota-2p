@@ -22,9 +22,7 @@ from .schemas import Reporte, SeccionReporte
 
 TZ = "America/Mexico_City"
 
-# Un pedido cuenta como venta real salvo que se haya cancelado.
 NO_CANCELADO = "p.estado <> 'CANCELADO'"
-
 
 @dataclass(frozen=True)
 class Filtros:
@@ -61,7 +59,6 @@ class Filtros:
     def sin_metodo(self) -> bool:
         return self._libre(self.metodo, ("", "todos", "todas"))
 
-
 @dataclass
 class Constructor:
     """Acumula condiciones SQL y sus parámetros en el orden correcto."""
@@ -77,22 +74,17 @@ class Constructor:
     def where(self) -> str:
         return f"WHERE {' AND '.join(self.condiciones)}" if self.condiciones else ""
 
-
-# ------------------------------------------------------------------ formato
 def dinero(valor) -> str:
     return f"${Decimal(str(valor or 0)):,.2f}"
 
-
 def entero(valor) -> str:
     return f"{int(valor or 0):,}"
-
 
 def porcentaje(parte, total) -> str:
     total = Decimal(str(total or 0))
     if total == 0:
         return "0%"
     return f"{Decimal(str(parte or 0)) / total * 100:.1f}%"
-
 
 def _sin_datos(headers: list[str]) -> SeccionReporte:
     return SeccionReporte(
@@ -101,12 +93,9 @@ def _sin_datos(headers: list[str]) -> SeccionReporte:
         rows=[["—"] * len(headers)],
     )
 
-
 def _seccion(titulo: str, headers: list[str], filas: list[list[str]]) -> SeccionReporte:
     return SeccionReporte(titulo=titulo, headers=headers, rows=filas or [["—"] * len(headers)])
 
-
-# ================================================================== ventas
 def reporte_ventas(cx: Connection, f: Filtros) -> tuple[str, list[SeccionReporte]]:
     c = Constructor()
     c.agregar(f"(p.creado_en AT TIME ZONE '{TZ}')::date BETWEEN %s AND %s", f.fecha_inicio, f.fecha_fin)
@@ -188,8 +177,6 @@ def reporte_ventas(cx: Connection, f: Filtros) -> tuple[str, list[SeccionReporte
     ]
     return f"Reporte de Ventas ({f.fecha_inicio} a {f.fecha_fin})", secciones
 
-
-# ================================================================= pedidos
 def reporte_pedidos(cx: Connection, f: Filtros) -> tuple[str, list[SeccionReporte]]:
     c = Constructor()
     c.agregar(f"(p.creado_en AT TIME ZONE '{TZ}')::date BETWEEN %s AND %s", f.fecha_inicio, f.fecha_fin)
@@ -263,8 +250,6 @@ def reporte_pedidos(cx: Connection, f: Filtros) -> tuple[str, list[SeccionReport
     ]
     return f"Reporte de Pedidos ({f.fecha_inicio} a {f.fecha_fin})", secciones
 
-
-# =============================================================== productos
 def reporte_productos(cx: Connection, f: Filtros) -> tuple[str, list[SeccionReporte]]:
     c = Constructor()
     if not f.sin_categoria:
@@ -338,8 +323,6 @@ def reporte_productos(cx: Connection, f: Filtros) -> tuple[str, list[SeccionRepo
     ]
     return f"Reporte de Productos ({f.fecha_inicio} a {f.fecha_fin})", secciones
 
-
-# ============================================================== inventario
 def reporte_inventario(cx: Connection, f: Filtros) -> tuple[str, list[SeccionReporte]]:
     mapa = {"DISPONIBLE": "DISPONIBLE", "BAJO": "BAJO", "URGENTE": "AGOTADO", "AGOTADO": "AGOTADO",
             "NO DISPONIBLE": "NO_DISPONIBLE", "NO_DISPONIBLE": "NO_DISPONIBLE", "ELIMINADO": "ELIMINADO"}
@@ -401,8 +384,6 @@ def reporte_inventario(cx: Connection, f: Filtros) -> tuple[str, list[SeccionRep
     ]))
     return "Reporte de Inventario y Existencias", secciones
 
-
-# ================================================================= tickets
 def reporte_tickets(cx: Connection, f: Filtros) -> tuple[str, list[SeccionReporte]]:
     c = Constructor()
     c.agregar(f"(t.emitido_en AT TIME ZONE '{TZ}')::date BETWEEN %s AND %s", f.fecha_inicio, f.fecha_fin)
@@ -461,8 +442,6 @@ def reporte_tickets(cx: Connection, f: Filtros) -> tuple[str, list[SeccionReport
     ]
     return f"Reporte de Tickets y Cobros ({f.fecha_inicio} a {f.fecha_fin})", secciones
 
-
-# ================================================================== gastos
 def reporte_gastos(cx: Connection, f: Filtros) -> tuple[str, list[SeccionReporte]]:
     gastos = cx.execute("""
         SELECT g.fecha, g.concepto, g.monto, COALESCE(u.nombre, '—') AS registrado_por
@@ -502,8 +481,6 @@ def reporte_gastos(cx: Connection, f: Filtros) -> tuple[str, list[SeccionReporte
     ]
     return f"Reporte de Gastos ({f.fecha_inicio} a {f.fecha_fin})", secciones
 
-
-# ================================================================ usuarios
 def reporte_usuarios(cx: Connection, f: Filtros) -> tuple[str, list[SeccionReporte]]:
     mapa_roles = {"ADMINISTRADOR": "administrador", "MESERO": "mesero",
                   "COCINA": "cocina", "CAJERO": "caja", "CAJA": "caja"}
@@ -580,8 +557,6 @@ def reporte_usuarios(cx: Connection, f: Filtros) -> tuple[str, list[SeccionRepor
             ]))
     return "Reporte de Usuarios del Sistema", secciones
 
-
-# =================================================================== mesas
 def reporte_mesas(cx: Connection, f: Filtros) -> tuple[str, list[SeccionReporte]]:
     estado_actual = cx.execute("""
         SELECT numero, capacidad, estado, activa FROM terracota.mesas ORDER BY numero
@@ -613,8 +588,6 @@ def reporte_mesas(cx: Connection, f: Filtros) -> tuple[str, list[SeccionReporte]
     ]
     return f"Reporte de Mesas ({f.fecha_inicio} a {f.fecha_fin})", secciones
 
-
-# =============================================================== auditoría
 def reporte_auditoria(cx: Connection, f: Filtros) -> tuple[str, list[SeccionReporte]]:
     historial = cx.execute(f"""
         SELECT p.id AS pedido, h.estado_anterior, h.estado_nuevo,
@@ -661,8 +634,6 @@ def reporte_auditoria(cx: Connection, f: Filtros) -> tuple[str, list[SeccionRepo
     ]
     return f"Reporte de Auditoría ({f.fecha_inicio} a {f.fecha_fin})", secciones
 
-
-# ================================================================ registro
 TIPOS: dict[str, Callable[[Connection, Filtros], tuple[str, list[SeccionReporte]]]] = {
     "ventas": reporte_ventas,
     "pedidos": reporte_pedidos,
@@ -674,7 +645,6 @@ TIPOS: dict[str, Callable[[Connection, Filtros], tuple[str, list[SeccionReporte]
     "mesas": reporte_mesas,
     "auditoria": reporte_auditoria,
 }
-
 
 def construir(cx: Connection, tipo: str, filtros: Filtros) -> Reporte:
     titulo, secciones = TIPOS[tipo](cx, filtros)

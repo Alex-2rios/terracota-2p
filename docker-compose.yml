@@ -1,12 +1,3 @@
-# =============================================================================
-#  Terracota - stack completo: PostgreSQL + API + Panel Web
-#
-#      docker compose up -d --build
-#
-#  Panel web : http://localhost:5000
-#  API/Swagger: http://localhost:8080/docs
-#  PostgreSQL : localhost:5433 (5433 para no chocar con una instalación local)
-# =============================================================================
 
 services:
   database:
@@ -28,8 +19,6 @@ services:
       retries: 12
     restart: unless-stopped
 
-  # Aplica el esquema y crea el usuario de la API. Los scripts son idempotentes,
-  # así que puede volver a correr en cada `up` sin borrar datos.
   database-init:
     image: postgres:16-alpine
     container_name: terracota-init
@@ -58,6 +47,8 @@ services:
       TZ: America/Mexico_City
     ports:
       - "${API_PORT:-8080}:8080"
+    volumes:
+      - terracota_media:/media
     depends_on:
       database-init:
         condition: service_completed_successfully
@@ -67,7 +58,6 @@ services:
     build: ./web
     container_name: terracota-web
     environment:
-      # Dentro de la red de Docker la web llama al servicio `api` por su nombre.
       API_URL: http://api:8080/api/v1
       SECRET_KEY: ${WEB_SECRET_KEY:-desarrollo-local-cambia-esta-clave-de-sesion-web}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
@@ -79,5 +69,19 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  movil:
+    build:
+      context: ./movil
+      args:
+        EXPO_PUBLIC_API_URL: ${MOVIL_API_URL:-http://localhost:8080/api/v1}
+    container_name: terracota-movil
+    ports:
+      - "${MOVIL_PORT:-5001}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   terracota_pgdata:
+  terracota_media:

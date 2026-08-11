@@ -30,8 +30,14 @@ venv/
 *.key
 *.pem
 *.mobileprovision
+# Credenciales de la keystore de firma del APK.
+firma.properties
 /ios
 /android
+# `expo prebuild` genera estos dentro de movil/: se regeneran a partir de
+# app.json, no se versionan. Las reglas de arriba están ancladas a la raíz.
+movil/android/
+movil/ios/
 
 # Documentación: se mantiene en local, fuera del repositorio.
 *.md
@@ -44,3 +50,7 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 *.tsbuildinfo
+
+# Artefactos de compilación de la app móvil.
+*.apk
+*.aab

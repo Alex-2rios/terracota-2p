@@ -10,8 +10,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
-# La API no necesita privilegios de root dentro del contenedor.
 RUN useradd --create-home --uid 10001 terracota && chown -R terracota:terracota /app
+
+RUN mkdir -p /media && chown terracota:terracota /media
+
 USER terracota
 
 EXPOSE 8080

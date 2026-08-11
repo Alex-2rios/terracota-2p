@@ -145,7 +145,6 @@ export default function PantallaCocina({
               <View key={`${producto.id}-${indice}`} style={styles.productLine}>
                 <View style={styles.flex}>
                   <Text style={styles.productName}>{producto.nombre}</Text>
-                  {/* La observación es la instrucción del cliente: tiene que leerse bien. */}
                   {producto.observacion ? (
                     <View style={styles.observacionCaja}>
                       <Text style={styles.observacionTexto}>{producto.observacion}</Text>

@@ -3,14 +3,6 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colores } from './TerracotaUI';
 
-/*
- * Diálogos con la identidad de Terracota, en lugar del Alert del sistema.
- *
- * Se usa un pequeño bus a nivel de módulo para poder avisar desde cualquier
- * pantalla sin pasar props ni montar un contexto: `<CentroDeAvisos />` se
- * renderiza una sola vez en App.js y se suscribe.
- */
-
 let publicar = null;
 const pendientes = [];
 
@@ -18,7 +10,7 @@ function emitir(aviso) {
   if (publicar) {
     publicar(aviso);
   } else {
-    // Todavía no se monta el centro de avisos: se guarda para no perderlo.
+
     pendientes.push(aviso);
   }
 }
@@ -28,7 +20,6 @@ export const avisar = {
   error: (titulo, mensaje) => emitir({ tono: 'error', titulo, mensaje }),
   info: (titulo, mensaje) => emitir({ tono: 'info', titulo, mensaje }),
 
-  /** Diálogo de dos botones. `alConfirmar` se ejecuta al aceptar. */
   confirmar: ({ titulo, mensaje, textoConfirmar = 'Confirmar', textoCancelar = 'Cancelar', alConfirmar }) =>
     emitir({ tono: 'info', titulo, mensaje, textoConfirmar, textoCancelar, alConfirmar }),
 };
@@ -81,7 +72,6 @@ export function CentroDeAvisos() {
   return (
     <Modal transparent animationType="fade" visible onRequestClose={cerrar} statusBarTranslucent>
       <Pressable style={styles.fondo} onPress={esConfirmacion ? undefined : cerrar}>
-        {/* El Pressable interior evita que el toque sobre la tarjeta la cierre. */}
         <Pressable style={styles.tarjeta} onPress={() => {}}>
           <View style={[styles.icono, { backgroundColor: estilo.fondo }]}>
             <Text style={[styles.iconoTexto, { color: estilo.color }]}>{estilo.simbolo}</Text>

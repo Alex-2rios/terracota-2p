@@ -3,7 +3,6 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 class Settings(BaseSettings):
     app_name: str = "Terracota API"
     environment: str = "development"
@@ -13,11 +12,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = Field(default=480, ge=5, le=1440)
 
-    # Orígenes permitidos para los clientes navegador (web Flask y Expo Web).
-    # React Native no aplica CORS, por eso la app móvil no necesita figurar aquí.
     cors_origins: str = "http://localhost:5000,http://127.0.0.1:5000,http://localhost:8081,http://localhost:19006"
 
-    # Freno de fuerza bruta en /auth/token.
     login_max_intentos: int = Field(default=8, ge=3, le=100)
     login_ventana_segundos: int = Field(default=300, ge=30, le=3600)
 
@@ -35,7 +31,6 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment.lower() in {"production", "produccion", "prod"}
-
 
 @lru_cache
 def get_settings() -> Settings:

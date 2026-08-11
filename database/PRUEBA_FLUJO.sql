@@ -1,8 +1,4 @@
--- ============================================================================
---  Prueba de humo del flujo completo: Mesero -> Cocina -> Mesero -> Caja.
---  Termina en ROLLBACK, así que NO deja datos basura en la base.
---  Usa exactamente los usuarios de CREDENCIALES.md.
--- ============================================================================
+
 
 BEGIN;
 SET search_path TO terracota, public;
@@ -19,7 +15,6 @@ BEGIN
   SELECT id INTO STRICT cocina_id FROM usuarios WHERE lower(usuario) = 'cocina';
   SELECT id INTO STRICT cajero_id FROM usuarios WHERE lower(usuario) = 'caja';
 
-  -- Toma la primera mesa realmente disponible para no chocar con datos previos.
   SELECT numero INTO STRICT mesa_libre
   FROM mesas WHERE activa AND estado = 'DISPONIBLE'
   ORDER BY numero LIMIT 1;

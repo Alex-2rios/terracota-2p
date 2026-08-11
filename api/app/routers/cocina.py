@@ -10,14 +10,12 @@ from ..dependencies import CurrentUser, require_roles
 from ..queries import get_order
 from ..schemas import CambioEstado
 
-
 router = APIRouter(prefix="/cocina", tags=["Cocina"])
 cocina_required = require_roles("cocina")
 
 ESTADOS_COCINA = ("PENDIENTE", "PREPARANDO", "LISTO")
 
 SIGUIENTE_ESTADO = {"PENDIENTE": "PREPARANDO", "PREPARANDO": "LISTO"}
-
 
 @router.get("/pedidos", summary="Listar Pedidos de Cocina")
 def list_kitchen_orders(
@@ -40,7 +38,6 @@ def list_kitchen_orders(
         """,
         (list(ESTADOS_COCINA), normalizado, normalizado),
     ).fetchall()
-
 
 @router.patch("/pedidos/{order_id}/estado", summary="Actualizar Estado de Pedido")
 def update_order_status(
@@ -71,7 +68,6 @@ def update_order_status(
         (order_id, payload.estado, user.id, payload.comentario),
     ).fetchone()
     return get_order(connection, order_id)
-
 
 @router.get("/resumen", summary="Resumen del Tablero de Cocina")
 def kitchen_summary(

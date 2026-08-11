@@ -1,6 +1,4 @@
 #!/bin/sh
-# Inicializa la base de datos de Terracota dentro del contenedor `database-init`.
-# Los scripts son idempotentes: correr esto varias veces no borra datos.
 set -e
 
 HOST="${PGHOST:-database}"

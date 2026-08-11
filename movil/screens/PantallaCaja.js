@@ -278,8 +278,6 @@ export default function PantallaCaja({
           <MensajeAviso texto={aviso} alReintentar={alRefrescar} />
           <Text style={styles.datePill}>FECHA: {ventasHoy?.fecha || '—'}</Text>
 
-          {/* El corte lo calcula la API con la zona horaria del negocio; la app
-              sólo lo muestra, así móvil y web reportan exactamente lo mismo. */}
           <View style={styles.metricCard}>
             <Text style={styles.metricLabel}>VENTAS TOTALES</Text>
             <Text style={styles.metricValue}>{formatearDinero(ventasHoy?.total)}</Text>

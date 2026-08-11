@@ -1,10 +1,4 @@
-/*
- * Gráficas del tablero dibujadas con Canvas 2D.
- *
- * No se usa ninguna librería externa a propósito: el panel tiene que funcionar
- * en la revisión aunque no haya internet en el salón. Antes esto dependía de
- * Chart.js servido desde un CDN.
- */
+
 
 (function () {
   const contenedor = document.getElementById("datosGraficas");
@@ -49,11 +43,9 @@
     return "$" + Number(valor).toLocaleString("es-MX", { maximumFractionDigits: 0 });
   }
 
-  // ------------------------------------------------ barras agrupadas
   function barrasAgrupadas(canvas, etiquetas, series) {
     const { ctx, ancho, alto } = preparar(canvas);
-    // En pantallas angostas el margen del eje Y se encoge para que siga
-    // quedando espacio de dibujo; si aun así no cabe, no se dibuja nada roto.
+
     const margen = { arriba: 16, derecha: 12, abajo: 30, izquierda: ancho < 320 ? 40 : 58 };
     const anchoUtil = ancho - margen.izquierda - margen.derecha;
     const altoUtil = alto - margen.arriba - margen.abajo;
@@ -67,7 +59,6 @@
     const maximo = Math.max(1, ...todos);
     const pasos = 4;
 
-    // Rejilla y escala del eje Y
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
     ctx.font = "11px system-ui, sans-serif";
@@ -108,7 +99,6 @@
       ctx.fillText(etiqueta, centro, margen.arriba + altoUtil + 8);
     });
 
-    // Eje X
     ctx.strokeStyle = REJILLA;
     ctx.beginPath();
     ctx.moveTo(margen.izquierda, margen.arriba + altoUtil + 0.5);
@@ -116,7 +106,6 @@
     ctx.stroke();
   }
 
-  // ------------------------------------------------------------ dona
   function dona(canvas, etiquetas, valores, leyenda) {
     const { ctx, ancho, alto } = preparar(canvas);
     const total = valores.reduce((suma, v) => suma + Number(v), 0);
@@ -144,7 +133,6 @@
       anguloInicio += porcion;
     });
 
-    // Hueco central
     ctx.globalCompositeOperation = "destination-out";
     ctx.beginPath();
     ctx.arc(centroX, centroY, radioInterno, 0, Math.PI * 2);
@@ -171,7 +159,6 @@
     }
   }
 
-  // ------------------------------------------ filtro de series (Ambas/una)
   const SERIES = {
     ganancias: { nombre: "Ganancias", valores: datos.ganancias, color: "#a14f33" },
     gastos: { nombre: "Gastos", valores: datos.gastos, color: "#d4ad88" },

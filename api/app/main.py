@@ -11,22 +11,17 @@ from .config import get_settings
 from .database import create_pool
 from .routers import administracion, auth, caja, catalogos, cocina, inventario, mesero
 
-
 logger = logging.getLogger("terracota.api")
 settings = get_settings()
 
-
-# SQLSTATE -> HTTP. Las funciones PL/pgSQL lanzan estos códigos a propósito
-# para que el cliente reciba un estado correcto y no un 400 genérico.
 CODIGOS_HTTP = {
-    "23505": status.HTTP_409_CONFLICT,                    # unique_violation
-    "23503": status.HTTP_422_UNPROCESSABLE_ENTITY,        # foreign_key_violation
-    "23514": status.HTTP_422_UNPROCESSABLE_ENTITY,        # check_violation
-    "22023": status.HTTP_422_UNPROCESSABLE_ENTITY,        # invalid_parameter_value
-    "42501": status.HTTP_403_FORBIDDEN,                   # insufficient_privilege
-    "P0002": status.HTTP_404_NOT_FOUND,                   # no_data_found
+    "23505": status.HTTP_409_CONFLICT,
+    "23503": status.HTTP_422_UNPROCESSABLE_ENTITY,
+    "23514": status.HTTP_422_UNPROCESSABLE_ENTITY,
+    "22023": status.HTTP_422_UNPROCESSABLE_ENTITY,
+    "42501": status.HTTP_403_FORBIDDEN,
+    "P0002": status.HTTP_404_NOT_FOUND,
 }
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,7 +33,6 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         pool.close()
-
 
 app = FastAPI(
     title=settings.app_name,
@@ -59,7 +53,6 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-
 @app.exception_handler(psycopg.OperationalError)
 async def database_unavailable_handler(_: Request, error: psycopg.OperationalError) -> JSONResponse:
     logger.error("Base de datos no disponible: %s", error)
@@ -67,7 +60,6 @@ async def database_unavailable_handler(_: Request, error: psycopg.OperationalErr
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         content={"detail": "La base de datos no está disponible. Intenta de nuevo en unos segundos."},
     )
-
 
 @app.exception_handler(psycopg.Error)
 async def database_error_handler(_: Request, error: psycopg.Error) -> JSONResponse:
@@ -78,7 +70,6 @@ async def database_error_handler(_: Request, error: psycopg.Error) -> JSONRespon
         logger.exception("Error de base de datos %s", sqlstate)
     return JSONResponse(status_code=codigo, content={"detail": detalle})
 
-
 @app.get("/health", tags=["Sistema"], summary="Estado del Servicio")
 def health(request: Request) -> dict[str, str]:
     """Comprueba que la API responde y que la base contesta."""
@@ -86,12 +77,10 @@ def health(request: Request) -> dict[str, str]:
         connection.execute("SELECT 1")
     return {"status": "ok", "servicio": settings.app_name, "version": app.version}
 
-
 @app.get("/", include_in_schema=False)
 @app.get("/forms", include_in_schema=False)
 def documentation() -> RedirectResponse:
     return RedirectResponse(url="/docs")
-
 
 def custom_openapi():
     if app.openapi_schema:
@@ -115,9 +104,7 @@ def custom_openapi():
     app.openapi_schema = esquema
     return app.openapi_schema
 
-
 app.openapi = custom_openapi
-
 
 for api_router in (
     auth.router,

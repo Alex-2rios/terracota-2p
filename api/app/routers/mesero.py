@@ -7,12 +7,10 @@ from ..dependencies import CurrentUser, require_roles
 from ..queries import get_order
 from ..schemas import CambioEstado, PedidoCreate
 
-
 router = APIRouter(prefix="/mesero", tags=["Mesero"])
 mesero_required = require_roles("mesero")
 
 ESTADOS_ACTIVOS = ("PENDIENTE", "PREPARANDO", "LISTO", "ENTREGADO")
-
 
 @router.get("/pedidos", summary="Listar Mis Pedidos")
 def list_my_orders(
@@ -49,7 +47,6 @@ def list_my_orders(
         parametros,
     ).fetchall()
 
-
 @router.post("/pedidos", status_code=status.HTTP_201_CREATED, summary="Crear Pedido")
 def create_order(
     payload: PedidoCreate,
@@ -64,7 +61,6 @@ def create_order(
     ).fetchone()
     return get_order(connection, creado["id"])
 
-
 @router.get("/pedidos/{order_id}", summary="Ver Detalle de Pedido")
 def get_my_order(
     order_id: int,
@@ -75,7 +71,6 @@ def get_my_order(
     if pedido["mesero_id"] != user.id and not user.es_admin:
         raise HTTPException(status_code=403, detail="El pedido pertenece a otro mesero.")
     return pedido
-
 
 @router.patch("/pedidos/{order_id}/entregar", summary="Entregar Pedido")
 def deliver_order(

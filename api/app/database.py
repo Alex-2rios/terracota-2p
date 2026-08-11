@@ -7,7 +7,6 @@ from psycopg_pool import ConnectionPool
 
 from .config import Settings
 
-
 def create_pool(settings: Settings) -> ConnectionPool:
     return ConnectionPool(
         conninfo=settings.database_url,
@@ -17,7 +16,6 @@ def create_pool(settings: Settings) -> ConnectionPool:
         timeout=10,
         kwargs={"row_factory": dict_row},
     )
-
 
 def get_connection(request: Request) -> Generator[Connection, None, None]:
     """Una transacción por petición: si el handler lanza, se revierte todo."""

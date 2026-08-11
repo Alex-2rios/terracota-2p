@@ -57,5 +57,4 @@ export const navegacionPorRol = {
 
 export const metodosPago = ['Efectivo', 'Tarjeta', 'Transferencia'];
 
-/** Estados en los que un pedido sigue ocupando la mesa. */
 export const ESTADOS_ACTIVOS = ['PENDIENTE', 'PREPARANDO', 'LISTO', 'ENTREGADO'];

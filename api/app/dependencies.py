@@ -7,11 +7,9 @@ from fastapi.security import OAuth2PasswordBearer
 from .config import Settings, get_settings
 from .security import decode_access_token
 
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
 ROL_ADMIN = "administrador"
-
 
 @dataclass(frozen=True)
 class CurrentUser:
@@ -22,7 +20,6 @@ class CurrentUser:
     @property
     def es_admin(self) -> bool:
         return ROL_ADMIN in self.roles
-
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
@@ -41,7 +38,6 @@ def get_current_user(
     except (jwt.PyJWTError, KeyError, TypeError, ValueError):
         raise unauthorized from None
     return CurrentUser(id=user_id, username=username, roles=roles)
-
 
 def require_roles(*allowed_roles: str):
     """El rol administrador siempre pasa: es el superusuario del sistema."""

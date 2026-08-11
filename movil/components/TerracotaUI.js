@@ -225,7 +225,6 @@ export function Contenido({ children, scroll = true, alRefrescar, refrescando = 
   );
 }
 
-/** Banda superior para avisos de conexión sin bloquear la pantalla. */
 export function MensajeAviso({ texto, tono = 'error', alReintentar }) {
   if (!texto) return null;
 

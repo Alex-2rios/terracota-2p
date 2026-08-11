@@ -8,7 +8,6 @@
 
   <p class="subtle report-generado">Generado el {{ reporte.generado_en }}</p>
 
-  {# Se reenvían los mismos filtros para que la descarga coincida con lo que se ve. #}
   <form method="post" action="{{ url_for('exportar_reporte') }}" class="report-download">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {% for clave, valor in filtros.items() %}

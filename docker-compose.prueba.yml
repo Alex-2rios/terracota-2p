@@ -1,16 +1,3 @@
-# Stack de PRUEBAS aislado, para verificar sobre una base recién creada sin
-# tocar los datos con los que estás trabajando. Corre en paralelo al normal.
-#
-#   $env:POSTGRES_PORT="5443"; $env:API_PORT="8090"; $env:WEB_PORT="5010"
-#   docker compose -p terracota_prueba -f docker-compose.yml -f docker-compose.prueba.yml up -d --build
-#
-#   ... verificar contra http://localhost:5010 y http://localhost:8090 ...
-#
-#   docker compose -p terracota_prueba -f docker-compose.yml -f docker-compose.prueba.yml down -v
-#
-# Aquí sólo se cambian los nombres de contenedor: los del stack normal son
-# fijos y chocarían. Los puertos van por variables de entorno porque Compose
-# SUMA las listas de `ports` entre archivos en lugar de reemplazarlas.
 services:
   database:
     container_name: prueba-terracota-postgres

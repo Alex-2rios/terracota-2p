@@ -13,14 +13,8 @@ import {
   terracotaApi,
 } from '../services/api';
 
-/** Cada cuántos ms se refrescan los datos del rol activo. */
 const INTERVALO_SONDEO = 12000;
 
-/**
- * Contenedor de la aplicación: mantiene la sesión, los datos del rol activo y
- * la pantalla visible. Los componentes de pantalla son de presentación y
- * reciben todo por props.
- */
 export default function PantallaMenu() {
   const [sesion, setSesion] = useState(null);
   const [rol, setRol] = useState('mesero');
@@ -38,7 +32,6 @@ export default function PantallaMenu() {
   const [cargando, setCargando] = useState(false);
   const [aviso, setAviso] = useState(null);
 
-  // Evita que una respuesta lenta de un rol anterior pise los datos del actual.
   const peticionActual = useRef(0);
 
   const cerrarSesion = useCallback((mensaje) => {
@@ -110,8 +103,6 @@ export default function PantallaMenu() {
     }
   }, [manejarError, rol, sesion]);
 
-  // Carga inicial + sondeo periódico. No depende de `pantalla`: navegar entre
-  // secciones ya no vuelve a descargar todo el catálogo.
   useEffect(() => {
     if (!sesion) return undefined;
     cargarDatos();
@@ -136,7 +127,6 @@ export default function PantallaMenu() {
     setSesion(datos);
   }, []);
 
-  // ------------------------------------------------------------- acciones
   const crearPedido = useCallback(async (pedido) => {
     const creado = await terracotaApi.crearPedido(pedido);
     const mapeado = mapearPedido(creado);
@@ -173,7 +163,6 @@ export default function PantallaMenu() {
     return actualizado;
   }, []);
 
-  // ------------------------------------------------------------ derivados
   const estadisticas = useMemo(() => calcularEstadisticas(rol, {
     pedidos, pedidosCaja, ventasHoy, inventario,
   }), [inventario, pedidos, pedidosCaja, rol, ventasHoy]);
@@ -250,7 +239,6 @@ export default function PantallaMenu() {
   );
 }
 
-// ================================================================= mapeos
 function mapearProducto(producto) {
   return {
     id: producto.clave,
@@ -312,7 +300,6 @@ function formatearHora(valor) {
   return new Date(valor).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 }
 
-// =========================================================== estadísticas
 function calcularEstadisticas(rol, datos) {
   const { pedidos, pedidosCaja, ventasHoy, inventario } = datos;
 

@@ -19,12 +19,10 @@ from ..schemas import (
     UsuarioUpdate,
 )
 
-
 router = APIRouter(prefix="/administracion", tags=["Administración"])
 admin_required = require_roles("administrador")
 
 TZ = "America/Mexico_City"
-
 
 def _rango(fecha_inicio: Optional[date], fecha_fin: Optional[date]) -> tuple[date, date]:
     fin = fecha_fin or date.today()
@@ -36,8 +34,6 @@ def _rango(fecha_inicio: Optional[date], fecha_fin: Optional[date]) -> tuple[dat
         )
     return inicio, fin
 
-
-# ============================================================== usuarios
 @router.get("/roles", summary="Listar Roles del Sistema")
 def list_roles(
     _: CurrentUser = Depends(admin_required),
@@ -46,7 +42,6 @@ def list_roles(
     return connection.execute(
         "SELECT id, clave, nombre FROM terracota.roles ORDER BY nombre"
     ).fetchall()
-
 
 @router.get("/usuarios", summary="Listar Usuarios")
 def list_users(
@@ -75,7 +70,6 @@ def list_users(
         parametros,
     ).fetchall()
 
-
 @router.get("/usuarios/{user_id}", summary="Ver Usuario")
 def get_user(
     user_id: int,
@@ -83,7 +77,6 @@ def get_user(
     connection: Connection = Depends(get_connection),
 ) -> dict:
     return get_usuario(connection, user_id)
-
 
 @router.post("/usuarios", status_code=status.HTTP_201_CREATED, summary="Crear Usuario")
 def create_user(
@@ -105,7 +98,6 @@ def create_user(
     asignar_roles(connection, creado["id"], payload.roles)
     return get_usuario(connection, creado["id"])
 
-
 @router.patch("/usuarios/{user_id}", summary="Actualizar Usuario")
 def update_user(
     user_id: int,
@@ -120,7 +112,6 @@ def update_user(
             detail="El usuario está dado de baja. Reactívalo antes de editarlo.",
         )
 
-    # Candados para no dejar el sistema sin administrador ni bloquearse a sí mismo.
     if user_id == actual.id and payload.activo is False:
         raise HTTPException(status_code=422, detail="No puedes desactivar tu propia cuenta.")
     if user_id == actual.id and payload.roles is not None and "administrador" not in payload.roles:
@@ -147,7 +138,6 @@ def update_user(
         asignar_roles(connection, user_id, payload.roles)
     return get_usuario(connection, user_id)
 
-
 @router.delete("/usuarios/{user_id}", summary="Dar de Baja un Usuario")
 def delete_user(
     user_id: int,
@@ -167,7 +157,6 @@ def delete_user(
     )
     return {"status": "ok", "mensaje": f"{usuario['nombre']} se dio de baja."}
 
-
 @router.post("/usuarios/{user_id}/reactivar", summary="Reactivar un Usuario")
 def restore_user(
     user_id: int,
@@ -180,7 +169,6 @@ def restore_user(
         (user_id,),
     )
     return get_usuario(connection, user_id)
-
 
 def _validar_ultimo_admin(connection: Connection, user_id: int) -> None:
     restantes = connection.execute(
@@ -197,8 +185,6 @@ def _validar_ultimo_admin(connection: Connection, user_id: int) -> None:
             detail="Es el único administrador activo: el sistema quedaría sin acceso.",
         )
 
-
-# ============================================================== pedidos
 @router.get("/pedidos", summary="Listar Pedidos (con filtros)")
 def list_orders(
     fecha_inicio: Optional[date] = None,
@@ -243,7 +229,6 @@ def list_orders(
         """,
         parametros,
     ).fetchall()
-
 
 @router.get("/pedidos/{order_id}", summary="Ver Detalle de Pedido")
 def get_order_detail(
@@ -293,7 +278,6 @@ def get_order_detail(
     ).fetchall()
     return pedido
 
-
 @router.post("/pedidos/{order_id}/cancelar", summary="Cancelar Pedido")
 def cancel_order(
     order_id: int,
@@ -308,8 +292,6 @@ def cancel_order(
     ).fetchone()
     return {"status": "ok", "mensaje": f"Pedido #{order_id} cancelado y stock restablecido."}
 
-
-# ============================================================== gastos
 @router.get("/gastos", summary="Listar Gastos")
 def list_expenses(
     fecha_inicio: Optional[date] = None,
@@ -330,7 +312,6 @@ def list_expenses(
         (inicio, fin),
     ).fetchall()
 
-
 @router.post("/gastos", status_code=status.HTTP_201_CREATED, summary="Registrar Gasto")
 def create_expense(
     payload: GastoCreate,
@@ -346,7 +327,6 @@ def create_expense(
         (payload.concepto, payload.monto, payload.fecha, user.id),
     ).fetchone()
 
-
 @router.delete("/gastos/{expense_id}", summary="Eliminar Gasto")
 def delete_expense(
     expense_id: int,
@@ -360,8 +340,6 @@ def delete_expense(
         raise HTTPException(status_code=404, detail="Gasto no encontrado.")
     return {"status": "ok", "mensaje": "Gasto eliminado."}
 
-
-# ============================================================== estadísticas
 @router.get("/estadisticas/resumen", summary="Resumen Estadístico")
 def statistics_summary(
     _: CurrentUser = Depends(admin_required),
@@ -388,7 +366,6 @@ def statistics_summary(
         """
     ).fetchall()
     return {**totales, "pedidos_por_estado": estados}
-
 
 @router.get("/estadisticas/dashboard", summary="Datos del Tablero Web")
 def dashboard(
@@ -464,8 +441,6 @@ def dashboard(
         "pedidos_recientes": recientes,
     }
 
-
-# ============================================================== reportes
 CATALOGO_REPORTES = [
     {
         "clave": "ventas", "nombre": "Ventas",
@@ -523,7 +498,6 @@ CATALOGO_REPORTES = [
     },
 ]
 
-
 @router.get("/reportes/opciones", summary="Catálogo de Reportes y sus Filtros")
 def report_options(
     _: CurrentUser = Depends(admin_required),
@@ -576,7 +550,6 @@ def report_options(
             "rol": ["Todos"] + [r["nombre"] for r in roles],
         },
     }
-
 
 @router.get("/reportes", response_model=Reporte, summary="Generar Reporte")
 def build_report(

@@ -18,7 +18,6 @@ function openConfirm(text, action) {
   acceptButton.focus();
 }
 
-/** Diálogo de un solo botón: informa, no pregunta. */
 function openInfo(heading, text) {
   pendingAction = null;
   title.textContent = heading;
@@ -34,15 +33,12 @@ function closeConfirm() {
   pendingAction = null;
   overlay.classList.remove("visible");
   overlay.setAttribute("aria-hidden", "true");
-  // Se restaura el estado por defecto: si no, el siguiente diálogo saldría
-  // sin botón de cancelar.
+
   cancelButton.hidden = false;
   acceptButton.textContent = "Confirmar";
   title.textContent = "Confirmar acción";
 }
 
-// Acciones deshabilitadas: en vez de dejar al usuario intentarlo y fallar, el
-// botón explica por qué no se puede.
 document.addEventListener("click", (event) => {
   const trigger = event.target.closest("[data-aviso]");
   if (!trigger) return;
@@ -51,7 +47,6 @@ document.addEventListener("click", (event) => {
   openInfo(trigger.dataset.avisoTitulo || "No se puede realizar", trigger.dataset.aviso);
 });
 
-// Enlaces con confirmación
 document.addEventListener("click", (event) => {
   const trigger = event.target.closest("a[data-confirm]");
   if (!trigger) return;
@@ -62,16 +57,12 @@ document.addEventListener("click", (event) => {
   });
 });
 
-// Formularios con confirmación
 document.addEventListener("submit", (event) => {
   const form = event.target.closest("form[data-confirm]");
   if (!form || form.dataset.confirmed === "true") return;
 
   event.preventDefault();
 
-  // `form.submit()` NO incluye el botón que disparó el envío, así que se guarda
-  // aquí y se reinyecta como campo oculto. Sin esto, un formulario con varios
-  // botones submit (por ejemplo PDF / XLSX) perdería cuál se presionó.
   const submitter = event.submitter;
 
   openConfirm(form.dataset.confirm, () => {

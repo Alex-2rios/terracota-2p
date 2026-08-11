@@ -8,7 +8,6 @@ export default function App() {
   return (
     <View style={styles.container}>
       <PantallaMenu />
-      {/* Se monta una sola vez: cualquier pantalla puede lanzar avisos con `avisar`. */}
       <CentroDeAvisos />
       <StatusBar style="dark" />
     </View>

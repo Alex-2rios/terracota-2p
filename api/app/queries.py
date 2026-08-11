@@ -9,7 +9,6 @@ from psycopg import Connection
 HOY_MX = "(now() AT TIME ZONE 'America/Mexico_City')::date"
 FECHA_LOCAL = "(%s AT TIME ZONE 'America/Mexico_City')::date"
 
-
 def slugify(nombre: str) -> str:
     """Convierte 'Café Americano' en 'cafe-americano'.
 
@@ -27,7 +26,6 @@ def slugify(nombre: str) -> str:
         )
     return slug[:60]
 
-
 def get_order(connection: Connection, order_id: int) -> dict:
     pedido = connection.execute(
         "SELECT * FROM terracota.vista_pedidos_operativos WHERE id = %s",
@@ -36,7 +34,6 @@ def get_order(connection: Connection, order_id: int) -> dict:
     if pedido is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido no encontrado.")
     return pedido
-
 
 def get_categoria_id(connection: Connection, categoria: str) -> int:
     """Acepta la clave (`BEBIDAS`) o el nombre visible (`Bebidas`)."""
@@ -55,7 +52,6 @@ def get_categoria_id(connection: Connection, categoria: str) -> int:
         )
     return registro["id"]
 
-
 def get_producto(connection: Connection, producto_id: int, incluir_eliminados: bool = False) -> dict:
     filtro = "" if incluir_eliminados else " AND NOT eliminado"
     producto = connection.execute(
@@ -66,7 +62,6 @@ def get_producto(connection: Connection, producto_id: int, incluir_eliminados: b
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado.")
     return producto
 
-
 def get_usuario(connection: Connection, user_id: int) -> dict:
     usuario = connection.execute(
         "SELECT * FROM terracota.vista_usuarios WHERE id = %s",
@@ -75,7 +70,6 @@ def get_usuario(connection: Connection, user_id: int) -> dict:
     if usuario is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado.")
     return usuario
-
 
 def validar_roles(connection: Connection, roles: list[str]) -> None:
     encontrados = connection.execute(
@@ -88,7 +82,6 @@ def validar_roles(connection: Connection, roles: list[str]) -> None:
             detail=f"Roles inexistentes: {', '.join(faltantes)}.",
         )
 
-
 def asignar_roles(connection: Connection, user_id: int, roles: list[str]) -> None:
     validar_roles(connection, roles)
     connection.execute("DELETE FROM terracota.usuario_roles WHERE usuario_id = %s", (user_id,))
@@ -99,7 +92,6 @@ def asignar_roles(connection: Connection, user_id: int, roles: list[str]) -> Non
         """,
         (user_id, roles),
     )
-
 
 def usuario_disponible(connection: Connection, usuario: str, excluir_id: int | None = None) -> None:
     """Comprueba que el nombre de usuario esté libre.

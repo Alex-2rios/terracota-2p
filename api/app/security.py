@@ -9,7 +9,6 @@ import jwt
 
 from .config import Settings
 
-
 def create_access_token(*, user_id: int, username: str, roles: list[str], settings: Settings) -> str:
     now = datetime.now(timezone.utc)
     payload = {
@@ -21,10 +20,8 @@ def create_access_token(*, user_id: int, username: str, roles: list[str], settin
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
-
 def decode_access_token(token: str, settings: Settings) -> dict:
     return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-
 
 class LoginThrottle:
     """Freno de fuerza bruta en memoria.
@@ -60,6 +57,5 @@ class LoginThrottle:
     def limpiar(self, clave: str) -> None:
         with self._lock:
             self._intentos.pop(clave, None)
-
 
 login_throttle = LoginThrottle()

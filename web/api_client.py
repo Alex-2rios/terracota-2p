@@ -15,7 +15,6 @@ import requests
 
 logger = logging.getLogger("terracota.web.api")
 
-
 class ApiError(Exception):
     """Error devuelto por la API, ya traducido a algo que se le puede enseñar
     al usuario."""
@@ -29,7 +28,6 @@ class ApiError(Exception):
     def es_sesion_invalida(self) -> bool:
         return self.status_code == 401
 
-
 class TerracotaApi:
     def __init__(self, base_url: str, timeout: float = 15.0):
         self.base_url = base_url.rstrip("/")
@@ -40,7 +38,6 @@ class TerracotaApi:
         """Raíz del servicio: `/health` vive fuera del prefijo /api/v1."""
         return self.base_url.removesuffix("/api/v1").rstrip("/")
 
-    # ------------------------------------------------------------------ core
     def _request(
         self,
         metodo: str,
@@ -80,7 +77,6 @@ class TerracotaApi:
 
         return cuerpo
 
-    # ------------------------------------------------------------------ auth
     def login(self, usuario: str, password: str) -> dict:
         return self._request(
             "POST", "/auth/token",
@@ -90,11 +86,9 @@ class TerracotaApi:
     def sesion_actual(self, token: str) -> dict:
         return self._request("GET", "/auth/me", token=token)
 
-    # -------------------------------------------------------------- tableros
     def dashboard(self, token: str) -> dict:
         return self._request("GET", "/administracion/estadisticas/dashboard", token=token)
 
-    # -------------------------------------------------------------- usuarios
     def usuarios(self, token: str, **filtros) -> list[dict]:
         return self._request("GET", "/administracion/usuarios", token=token, params=_limpiar(filtros))
 
@@ -116,7 +110,6 @@ class TerracotaApi:
     def roles(self, token: str) -> list[dict]:
         return self._request("GET", "/administracion/roles", token=token)
 
-    # ------------------------------------------------------------ inventario
     def inventario(self, token: str, **filtros) -> list[dict]:
         return self._request("GET", "/inventario/productos", token=token, params=_limpiar(filtros))
 
@@ -138,7 +131,6 @@ class TerracotaApi:
     def categorias(self, token: str) -> list[dict]:
         return self._request("GET", "/catalogos/categorias", token=token)
 
-    # --------------------------------------------------------------- pedidos
     def pedidos(self, token: str, **filtros) -> list[dict]:
         return self._request("GET", "/administracion/pedidos", token=token, params=_limpiar(filtros))
 
@@ -151,7 +143,6 @@ class TerracotaApi:
             token=token, json={"motivo": motivo},
         )
 
-    # ---------------------------------------------------------------- gastos
     def gastos(self, token: str, **filtros) -> list[dict]:
         return self._request("GET", "/administracion/gastos", token=token, params=_limpiar(filtros))
 
@@ -161,7 +152,6 @@ class TerracotaApi:
     def eliminar_gasto(self, token: str, gasto_id: int) -> dict:
         return self._request("DELETE", f"/administracion/gastos/{gasto_id}", token=token)
 
-    # -------------------------------------------------------------- reportes
     def opciones_reporte(self, token: str) -> dict:
         """Catálogo de reportes y valores de sus filtros.
 
@@ -173,15 +163,12 @@ class TerracotaApi:
     def reporte(self, token: str, **filtros) -> dict:
         return self._request("GET", "/administracion/reportes", token=token, params=_limpiar(filtros))
 
-    # ---------------------------------------------------------------- estado
     def health(self) -> dict:
         return self._request("GET", "/health", absoluta=True)
-
 
 def _limpiar(filtros: dict) -> dict:
     """Quita los filtros vacíos para no mandar `?estado=` a la API."""
     return {k: v for k, v in filtros.items() if v not in (None, "", [])}
-
 
 def _detalle(cuerpo: Any, respuesta: requests.Response) -> str:
     """Convierte el cuerpo de error de FastAPI en un mensaje legible."""
@@ -189,7 +176,7 @@ def _detalle(cuerpo: Any, respuesta: requests.Response) -> str:
         detalle = cuerpo.get("detail")
         if isinstance(detalle, str):
             return detalle
-        if isinstance(detalle, list):  # errores de validación de Pydantic
+        if isinstance(detalle, list):
             partes = []
             for item in detalle:
                 campo = " → ".join(str(x) for x in item.get("loc", []) if x != "body")

@@ -29,7 +29,7 @@
           <span>⌕</span>
           <input type="search" name="buscar" value="{{ buscar }}" placeholder="Buscar producto...">
         </div>
-        {# Selector y casilla filtran al cambiar; el botón queda para la búsqueda por texto. #}
+
         <select name="categoria" onchange="this.form.submit()">
           <option value="Todos">Todas las categorías</option>
           {% for categoria in categorias %}
@@ -79,8 +79,7 @@
                 </a>
 
                 {% if producto.en_pedidos_activos %}
-                  {# Se bloquea antes de intentarlo: dar de baja algo que está en
-                     un pedido en curso dejaría ese pedido apuntando a la nada. #}
+
                   <button type="button" class="icon-button bloqueado"
                           aria-label="No se puede dar de baja {{ producto.nombre }}"
                           title="Está en {{ producto.en_pedidos_activos }} pedido(s) sin cerrar. Cóbralos o cancélalos primero."
@@ -109,4 +108,3 @@
     </table>
   </section>
 {% endblock %}
-

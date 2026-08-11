@@ -1,10 +1,4 @@
-/*
- * Comprueba que todos los archivos JS/JSX de la app se parsean sin errores.
- *
- *   node verificar-sintaxis.js
- *
- * No sustituye a probar la app, pero atrapa erratas antes de abrir Expo.
- */
+
 
 const fs = require('fs');
 const path = require('path');

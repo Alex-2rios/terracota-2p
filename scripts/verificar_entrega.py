@@ -26,7 +26,6 @@ API = "http://localhost:8080/api/v1"
 RAIZ_API = "http://localhost:8080"
 WEB = "http://localhost:5000"
 
-# Debe coincidir EXACTAMENTE con CREDENCIALES.md.
 CREDENCIALES = [
     ("admin", "Admin123!", "administrador"),
     ("mesero", "Mesero123!", "mesero"),
@@ -39,21 +38,17 @@ CREDENCIALES = [
 fallos: list[str] = []
 avisos: list[str] = []
 
-
 def revisar(nombre: str, ok: bool, detalle: str = "") -> bool:
     print(("  [ok]    " if ok else "  [FALLA] ") + nombre + ("" if ok else f"  ->  {detalle}"))
     if not ok:
         fallos.append(nombre)
     return ok
 
-
 def titulo(texto: str) -> None:
     print(f"\n{texto}\n" + "-" * len(texto))
 
-
 def cabecera(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
-
 
 def entrar(usuario: str, password: str):
     try:
@@ -62,8 +57,6 @@ def entrar(usuario: str, password: str):
     except requests.RequestException as error:
         return error
 
-
-# ------------------------------------------------------------------ servicios
 titulo("1. Servicios")
 try:
     salud = requests.get(f"{RAIZ_API}/health", timeout=10)
@@ -84,7 +77,6 @@ try:
 except requests.RequestException as error:
     revisar("la web alcanza a la API", False, str(error))
 
-# --------------------------------------------------------------- credenciales
 titulo("2. Credenciales de la tarjeta")
 sesiones: dict[str, str] = {}
 for usuario, password, rol in CREDENCIALES:
@@ -105,7 +97,6 @@ if "admin" not in sesiones:
 
 admin = cabecera(sesiones["admin"])
 
-# ---------------------------------------------------------------- datos base
 titulo("3. Datos base")
 mesas = requests.get(f"{API}/catalogos/mesas", headers=admin, timeout=10).json()
 productos = requests.get(f"{API}/catalogos/productos", headers=admin, timeout=10).json()
@@ -118,7 +109,6 @@ libres = [m for m in mesas if m["estado"] == "DISPONIBLE"]
 if not libres:
     avisos.append("No hay ninguna mesa libre: cancela o cobra pedidos antes de la demostración.")
 
-# ------------------------------------------------------------- flujo completo
 titulo("4. Flujo completo Mesero -> Cocina -> Mesero -> Caja")
 faltan = [r for r in ("mesero", "cocina", "caja") if r not in sesiones]
 if faltan:
@@ -146,7 +136,6 @@ else:
         if revisar("caja lo cobra y emite ticket", r.status_code == 201, r.text[:120]):
             print(f"           folio emitido: {r.json()['folio']}")
 
-# -------------------------------------------------- reglas del inventario
 titulo("5. Reglas del inventario")
 if "mesero" in sesiones and libres and productos:
     mesero = cabecera(sesiones["mesero"])
@@ -162,8 +151,6 @@ if "mesero" in sesiones and libres and productos:
     mesas_ahora = [m for m in requests.get(f"{API}/catalogos/mesas", headers=mesero, timeout=10).json()
                    if m["estado"] == "DISPONIBLE"]
     if mesas_ahora:
-        # El mismo producto en dos renglones: así se detectó que al cancelar
-        # sólo se devolvía uno de ellos.
         pedido = requests.post(f"{API}/mesero/pedidos", headers=mesero, timeout=15, json={
             "mesa": mesas_ahora[0]["numero"],
             "items": [{"producto_clave": producto["clave"], "cantidad": 3},
@@ -187,7 +174,6 @@ if "mesero" in sesiones and libres and productos:
     else:
         avisos.append("No quedaban mesas libres para comprobar las reglas de inventario.")
 
-# ------------------------------------------------------------------- reportes
 titulo("6. Reportes en PDF y XLSX")
 catalogo = requests.get(f"{API}/administracion/reportes/opciones", headers=admin, timeout=20).json()
 tipos = [t["clave"] for t in catalogo["tipos"]]
@@ -211,7 +197,6 @@ else:
                 pdf.content[:4] == b"%PDF" and xlsx.content[:2] == b"PK",
                 f"pdf={pdf.status_code} xlsx={xlsx.status_code}")
 
-# ---------------------------------------------------------------- pantallas
 titulo("7. Pantallas del panel")
 for ruta, senal in [("/inicio", "Estadísticas"), ("/pedidos", "Gestión de Pedidos"),
                     ("/usuarios", "Gestión de Usuarios"), ("/inventario", "Gestión de Inventario"),
@@ -219,7 +204,6 @@ for ruta, senal in [("/inicio", "Estadísticas"), ("/pedidos", "Gestión de Pedi
     r = sesion_web.get(f"{WEB}{ruta}", timeout=25)
     revisar(f"{ruta}", r.status_code == 200 and senal in r.text, f"HTTP {r.status_code}")
 
-# ------------------------------------------------------------------ resumen
 print("\n" + "=" * 64)
 if avisos:
     print("Avisos:")

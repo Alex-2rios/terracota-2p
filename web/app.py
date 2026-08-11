@@ -28,8 +28,6 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from api_client import ApiError, TerracotaApi
 
-
-# ============================================================== configuración
 app = Flask(__name__)
 
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
@@ -53,14 +51,11 @@ ETIQUETA_ESTADO_INVENTARIO = {
     "ELIMINADO": "Dado de baja",
 }
 
-
-# =================================================================== sesión
 def _cerrar_sesion(mensaje: str | None = None, categoria: str = "error"):
     session.clear()
     if mensaje:
         flash(mensaje, categoria)
     return redirect(url_for("login"))
-
 
 @app.before_request
 def exigir_sesion_y_csrf():
@@ -70,14 +65,12 @@ def exigir_sesion_y_csrf():
     if not session.get("token"):
         return _cerrar_sesion("Inicia sesión para continuar.", "error")
 
-    # Protección CSRF: todo lo que modifica estado debe traer el token de la sesión.
     if request.method in ("POST", "PUT", "PATCH", "DELETE"):
         enviado = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token")
         if not enviado or not secrets.compare_digest(enviado, session.get("csrf_token", "")):
             flash("La sesión del formulario expiró. Vuelve a intentarlo.", "error")
             return redirect(request.referrer or url_for("inicio"))
     return None
-
 
 @app.context_processor
 def inyectar_layout():
@@ -87,7 +80,6 @@ def inyectar_layout():
         "csrf_token": session.get("csrf_token", ""),
         "anio_actual": date.today().year,
     }
-
 
 def manejar_errores_api(vista):
     """Convierte cualquier ApiError en algo presentable, nunca en un 500.
@@ -108,23 +100,16 @@ def manejar_errores_api(vista):
             codigo = error.status_code or 0
             es_culpa_del_usuario = 400 <= codigo < 500
 
-            # POST: patrón post/redirect/get, para que recargar no reenvíe el formulario.
             if request.method == "POST":
                 flash(error.mensaje, "error")
                 destino = request.referrer
                 if destino and destino != request.url:
                     return redirect(destino)
 
-            # GET con filtros inválidos: se limpian los filtros y se reintenta.
-            # `request.path` conserva la ruta pero suelta la query, así que la
-            # segunda vuelta ya no puede fallar por lo mismo (no hay bucle).
             if es_culpa_del_usuario and request.query_string:
                 flash(error.mensaje, "error")
                 return redirect(request.path)
 
-            # Resto: se pinta la página de error. En GET nunca se redirige,
-            # porque con la API caída el destino fallaría igual y el navegador
-            # acabaría en ERR_TOO_MANY_REDIRECTS en vez de mostrar el problema.
             return render_template(
                 "error.html",
                 page_title="No se pudo mostrar",
@@ -140,12 +125,9 @@ def manejar_errores_api(vista):
 
     return envoltura
 
-
 def token() -> str:
     return session["token"]
 
-
-# ==================================================================== login
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -177,7 +159,6 @@ def login():
         session["csrf_token"] = secrets.token_urlsafe(32)
         return redirect(url_for("inicio"))
 
-    # GET: se limpia la sesión conservando los mensajes pendientes.
     mensajes = session.get("_flashes")
     session.clear()
     if mensajes:
@@ -194,12 +175,9 @@ def login():
         api_url=app.config["API_URL"], estado_api=estado_api,
     )
 
-
 @app.post("/salir")
 def salir():
-    # El CSRF ya se validó en `exigir_sesion_y_csrf`.
     return _cerrar_sesion("Sesión cerrada correctamente.", "success")
-
 
 @app.get("/salud")
 def salud():
@@ -209,8 +187,6 @@ def salud():
     except ApiError as error:
         return jsonify({"web": "ok", "api": "error", "detalle": error.mensaje}), 503
 
-
-# ================================================================== tablero
 @app.get("/inicio")
 @manejar_errores_api
 def inicio():
@@ -234,13 +210,10 @@ def inicio():
         bajo_stock=datos["productos_bajo_stock"],
     )
 
-
 @app.get("/estadisticas")
 def estadisticas():
     return redirect(url_for("inicio"))
 
-
-# ================================================================== pedidos
 @app.get("/pedidos")
 @manejar_errores_api
 def pedidos():
@@ -270,7 +243,6 @@ def pedidos():
         mesa_sel=mesa_sel,
     )
 
-
 @app.get("/pedidos/<int:pedido_id>")
 def detalle_pedido(pedido_id: int):
     """Devuelve JSON para el modal de detalle."""
@@ -278,7 +250,6 @@ def detalle_pedido(pedido_id: int):
         return jsonify(api.pedido(token(), pedido_id))
     except ApiError as error:
         return jsonify({"error": error.mensaje}), error.status_code or 500
-
 
 @app.post("/pedidos/<int:pedido_id>/cancelar")
 @manejar_errores_api
@@ -288,8 +259,6 @@ def cancelar_pedido(pedido_id: int):
     flash(resultado.get("mensaje", "Pedido cancelado."), "success")
     return redirect(url_for("pedidos", **request.args.to_dict()))
 
-
-# ================================================================= usuarios
 @app.get("/usuarios")
 @manejar_errores_api
 def usuarios():
@@ -312,7 +281,6 @@ def usuarios():
         buscar=buscar,
         incluir_eliminados=incluir,
     )
-
 
 @app.route("/usuarios/nuevo", methods=["GET", "POST"])
 @manejar_errores_api
@@ -350,7 +318,6 @@ def agregar_usuario():
         es_nuevo=True,
     )
 
-
 @app.route("/usuarios/<int:user_id>/editar", methods=["GET", "POST"])
 @manejar_errores_api
 def editar_usuario(user_id: int):
@@ -360,7 +327,6 @@ def editar_usuario(user_id: int):
         password = request.form.get("password", "")
         confirmacion = request.form.get("confirmacion", "")
 
-        # La contraseña es opcional al editar: si se deja vacía, no se toca.
         if password or confirmacion:
             error = _validar_password(password, confirmacion)
             if error:
@@ -395,14 +361,12 @@ def editar_usuario(user_id: int):
         es_nuevo=False,
     )
 
-
 @app.post("/usuarios/<int:user_id>/eliminar")
 @manejar_errores_api
 def eliminar_usuario(user_id: int):
     resultado = api.eliminar_usuario(token(), user_id)
     flash(resultado.get("mensaje", "Usuario dado de baja."), "success")
     return redirect(url_for("usuarios"))
-
 
 @app.post("/usuarios/<int:user_id>/reactivar")
 @manejar_errores_api
@@ -411,8 +375,6 @@ def reactivar_usuario(user_id: int):
     flash("Usuario reactivado.", "success")
     return redirect(url_for("usuarios", incluir_eliminados="1"))
 
-
-# =============================================================== inventario
 @app.get("/inventario")
 @manejar_errores_api
 def inventario():
@@ -439,7 +401,6 @@ def inventario():
         buscar=buscar,
         incluir_eliminados=incluir,
     )
-
 
 @app.route("/inventario/nuevo", methods=["GET", "POST"])
 @manejar_errores_api
@@ -469,7 +430,6 @@ def agregar_producto():
         es_nuevo=True,
     )
 
-
 @app.route("/inventario/<int:product_id>/editar", methods=["GET", "POST"])
 @manejar_errores_api
 def editar_producto(product_id: int):
@@ -481,8 +441,6 @@ def editar_producto(product_id: int):
             flash(error, "error")
             return redirect(url_for("editar_producto", product_id=product_id))
 
-        # La clave (slug) del producto no cambia aunque se renombre: así los
-        # pedidos históricos siguen apuntando al mismo registro.
         api.actualizar_producto(token(), product_id, datos)
         flash("Producto actualizado correctamente.", "success")
         return redirect(url_for("inventario"))
@@ -497,7 +455,6 @@ def editar_producto(product_id: int):
         es_nuevo=False,
     )
 
-
 @app.post("/inventario/<int:product_id>/eliminar")
 @manejar_errores_api
 def eliminar_producto(product_id: int):
@@ -505,8 +462,6 @@ def eliminar_producto(product_id: int):
     flash(resultado.get("mensaje", "Producto dado de baja."), "success")
     return redirect(url_for("inventario"))
 
-
-# =================================================================== gastos
 @app.route("/gastos", methods=["GET", "POST"])
 @manejar_errores_api
 def gastos():
@@ -542,7 +497,6 @@ def gastos():
         hoy=hoy.isoformat(),
     )
 
-
 @app.post("/gastos/<int:gasto_id>/eliminar")
 @manejar_errores_api
 def eliminar_gasto(gasto_id: int):
@@ -550,8 +504,6 @@ def eliminar_gasto(gasto_id: int):
     flash("Gasto eliminado.", "success")
     return redirect(url_for("gastos"))
 
-
-# ================================================================= reportes
 @app.get("/reportes")
 @manejar_errores_api
 def reportes():
@@ -564,7 +516,6 @@ def reportes():
         fecha_inicio=(hoy - timedelta(days=30)).isoformat(),
         fecha_fin=hoy.isoformat(),
     )
-
 
 def _filtros_del_formulario() -> dict:
     """Traduce el formulario a los parámetros de la API.
@@ -590,7 +541,6 @@ def _filtros_del_formulario() -> dict:
         filtros["mesa"] = mesa
     return filtros
 
-
 @app.post("/reportes/ver")
 @manejar_errores_api
 def ver_reporte():
@@ -605,7 +555,6 @@ def ver_reporte():
         tipo=tipo,
         filtros=request.form.to_dict(),
     )
-
 
 @app.post("/reportes/exportar")
 @manejar_errores_api
@@ -628,14 +577,11 @@ def exportar_reporte():
         mimetype="application/pdf",
     )
 
-
-# ================================================================= utilidades
 def _dinero(valor) -> str:
     try:
         return f"${Decimal(str(valor or 0)):,.2f}"
     except (InvalidOperation, TypeError):
         return "$0.00"
-
 
 def _entero(valor: str) -> int | None:
     try:
@@ -643,14 +589,12 @@ def _entero(valor: str) -> int | None:
     except (TypeError, ValueError):
         return None
 
-
 def _decimal(valor: str) -> Decimal | None:
     limpio = str(valor or "").replace("$", "").replace(",", "").strip()
     try:
         return Decimal(limpio)
     except (InvalidOperation, TypeError):
         return None
-
 
 def _fecha_corta(valor: str | None) -> str | None:
     if not valor:
@@ -660,14 +604,12 @@ def _fecha_corta(valor: str | None) -> str | None:
     except ValueError:
         return str(valor)[:16]
 
-
 def _validar_password(password: str, confirmacion: str) -> str | None:
     if len(password) < 8:
         return "La contraseña debe tener al menos 8 caracteres."
     if password != confirmacion:
         return "La contraseña y su confirmación no coinciden."
     return None
-
 
 def _leer_producto(form) -> tuple[dict, str | None]:
     """Convierte el formulario en el cuerpo que espera la API, sin reventar
@@ -697,7 +639,6 @@ def _leer_producto(form) -> tuple[dict, str | None]:
         "disponible": form.get("disponible", "true") == "true",
     }, None
 
-
 def _texto_pdf(valor) -> str:
     """Prepara un texto para reportlab.
 
@@ -708,10 +649,7 @@ def _texto_pdf(valor) -> str:
     """
     return escapar_xml(str(valor))
 
-
-# Excel evalúa como fórmula cualquier celda que empiece por uno de estos.
 INICIOS_DE_FORMULA = ("=", "+", "-", "@")
-
 
 def _escribir_celda(celda, valor) -> None:
     """Escribe respetando el texto: un concepto como «=1+1» debe verse tal cual,
@@ -724,7 +662,6 @@ def _escribir_celda(celda, valor) -> None:
     celda.value = valor
     if isinstance(valor, str) and valor.startswith(INICIOS_DE_FORMULA):
         celda.data_type = "s"
-
 
 def _construir_pdf(reporte: dict) -> io.BytesIO:
     buffer = io.BytesIO()
@@ -781,7 +718,6 @@ def _construir_pdf(reporte: dict) -> io.BytesIO:
     buffer.seek(0)
     return buffer
 
-
 def _construir_xlsx(reporte: dict) -> io.BytesIO:
     buffer = io.BytesIO()
     libro = openpyxl.Workbook()
@@ -827,10 +763,7 @@ def _construir_xlsx(reporte: dict) -> io.BytesIO:
     buffer.seek(0)
     return buffer
 
-
 if __name__ == "__main__":
-    # El depurador de Werkzeug permite ejecutar código de forma remota, por eso
-    # está apagado salvo que se pida explícitamente con FLASK_DEBUG=true.
     debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
     app.run(
         debug=debug,

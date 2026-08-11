@@ -4,9 +4,7 @@ from psycopg import Connection
 from ..database import get_connection
 from ..dependencies import CurrentUser, get_current_user
 
-
 router = APIRouter(prefix="/catalogos", tags=["Catálogos"])
-
 
 @router.get("/mesas", summary="Listar Mesas")
 def list_tables(
@@ -22,7 +20,6 @@ def list_tables(
         """
     ).fetchall()
 
-
 @router.get("/categorias", summary="Listar Categorías")
 def list_categories(
     _: CurrentUser = Depends(get_current_user),
@@ -36,7 +33,6 @@ def list_categories(
         ORDER BY orden, nombre
         """
     ).fetchall()
-
 
 @router.get("/productos", summary="Listar Productos del Menú")
 def list_products(

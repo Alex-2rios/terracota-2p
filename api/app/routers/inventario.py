@@ -10,16 +10,11 @@ from ..dependencies import CurrentUser, require_roles
 from ..queries import get_categoria_id, get_producto, slugify
 from ..schemas import ProductoCreate, ProductoUpdate, SuministroUpdate
 
-
 router = APIRouter(prefix="/inventario", tags=["Inventario"])
 
-# Cocina administra el menú y las existencias; el administrador también entra
-# (require_roles siempre agrega `administrador`). Es el mismo recurso para la
-# app móvil y para el panel web: una sola regla de negocio, un solo endpoint.
 inventario_required = require_roles("cocina")
 
 ESTADOS_INVENTARIO = ("DISPONIBLE", "BAJO", "AGOTADO", "NO_DISPONIBLE", "ELIMINADO")
-
 
 @router.get("/productos", summary="Listar Inventario")
 def list_products(
@@ -62,7 +57,6 @@ def list_products(
         parametros,
     ).fetchall()
 
-
 @router.get("/productos/{product_id}", summary="Ver Producto")
 def get_product(
     product_id: int,
@@ -70,7 +64,6 @@ def get_product(
     connection: Connection = Depends(get_connection),
 ) -> dict:
     return get_producto(connection, product_id, incluir_eliminados=True)
-
 
 @router.post("/productos", status_code=status.HTTP_201_CREATED, summary="Crear Producto")
 def create_product(
@@ -91,7 +84,6 @@ def create_product(
         )
 
     if existente:
-        # Reactiva un producto que se había dado de baja, conservando su historial.
         creado = connection.execute(
             """
             UPDATE terracota.productos
@@ -120,7 +112,6 @@ def create_product(
         ).fetchone()
 
     return get_producto(connection, creado["id"], incluir_eliminados=True)
-
 
 @router.patch("/productos/{product_id}", summary="Actualizar Producto")
 def update_product(
@@ -152,7 +143,6 @@ def update_product(
     )
     return get_producto(connection, product_id)
 
-
 @router.get("/productos/{product_id}/pedidos-activos", summary="Pedidos que Bloquean la Baja")
 def blocking_orders(
     product_id: int,
@@ -174,7 +164,6 @@ def blocking_orders(
         """,
         (product_id,),
     ).fetchall()
-
 
 @router.delete("/productos/{product_id}", summary="Dar de Baja un Producto")
 def delete_product(
@@ -213,7 +202,6 @@ def delete_product(
     )
     return {"status": "ok", "mensaje": f"«{producto['nombre']}» se dio de baja del menú."}
 
-
 @router.patch("/productos/{product_id}/suministro", summary="Ajustar Existencias")
 def update_supply(
     product_id: int,
@@ -233,7 +221,6 @@ def update_supply(
         (payload.stock_actual, payload.stock_minimo, product_id),
     )
     return get_producto(connection, product_id)
-
 
 @router.get("/alertas", summary="Productos con Stock Bajo")
 def low_stock(

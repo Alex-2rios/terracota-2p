@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
   availableLow: { color: colores.warning },
   observationWrap: { marginTop: 10 },
   observationLabel: { color: colores.terracottaDark, fontSize: 9, fontWeight: '900', marginBottom: 4, letterSpacing: 0.3 },
-  // Antes medía 26 px de alto con letra de 10: prácticamente no se leía lo escrito.
+
   observationInput: {
     minHeight: 42,
     borderWidth: 1.5,

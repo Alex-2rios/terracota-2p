@@ -1,10 +1,4 @@
-/*
- * Formulario de reportes.
- *
- * No hay ninguna lista de reportes codificada aquí: todo sale del catálogo que
- * publica la API en /administracion/reportes/opciones. Agregar un reporte en el
- * backend lo hace aparecer en esta pantalla sin tocar el frontend.
- */
+
 
 (function () {
   const contenedorCatalogo = document.getElementById("catalogoReportes");
@@ -19,9 +13,6 @@
     return;
   }
 
-  // Cada filtro que declara un reporte se traduce a un campo del formulario.
-  // Varios filtros comparten el mismo `name` porque la API los recibe en el
-  // mismo parámetro (por ejemplo rol y categoría viajan como `categoria`).
   const CAMPOS = {
     categoria:         { name: "categoria", etiqueta: "Categoría",          opciones: "categoria" },
     rol:               { name: "categoria", etiqueta: "Rol",                opciones: "rol" },
@@ -75,8 +66,6 @@
     resumen.textContent = tipo.descripcion;
     pista.textContent = `Para este reporte se recomienda ${tipo.formato_sugerido.toUpperCase()}.`;
 
-    // Fuera los selects del reporte anterior: si quedaran ocultos pero
-    // habilitados, seguirían enviando su valor y filtrarían de más.
     contenedorCampos
       .querySelectorAll('label[data-campo]:not([data-campo="fechas"])')
       .forEach((nodo) => nodo.remove());
