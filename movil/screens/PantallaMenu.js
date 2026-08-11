@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import PantallaAutenticacion from './PantallaAutenticacion';
 import PantallaCaja from './PantallaCaja';
@@ -11,9 +12,10 @@ import {
   clearSession as limpiarSesionApi,
   login as apiLogin,
   terracotaApi,
+  urlImagen,
 } from '../services/api';
 
-const INTERVALO_SONDEO = 12000;
+const INTERVALO_SONDEO = 5000;
 
 export default function PantallaMenu() {
   const [sesion, setSesion] = useState(null);
@@ -31,6 +33,9 @@ export default function PantallaMenu() {
 
   const [cargando, setCargando] = useState(false);
   const [aviso, setAviso] = useState(null);
+
+  const [avisosCancelacion, setAvisosCancelacion] = useState([]);
+  const cancelacionesVistas = useRef(null);
 
   const peticionActual = useRef(0);
 
@@ -73,7 +78,13 @@ export default function PantallaMenu() {
           terracotaApi.pedidosMesero(),
         ]);
         if (peticionActual.current !== idPeticion) return;
-        setMesas(mesasApi.map((m) => ({ id: m.numero, estado: m.estado, capacidad: m.capacidad })));
+        setMesas(mesasApi.map((m) => ({
+          id: m.numero,
+          estado: m.estado,
+          capacidad: m.capacidad,
+          porRetomar: Boolean(m.por_retomar),
+          motivoRetoma: m.motivo_retoma || '',
+        })));
         setProductos(productosApi.map(mapearProducto));
         setPedidos(pedidosApi.map(mapearPedido));
       } else if (rol === 'cocina') {
@@ -109,6 +120,48 @@ export default function PantallaMenu() {
     const temporizador = setInterval(() => cargarDatos({ silencioso: true }), INTERVALO_SONDEO);
     return () => clearInterval(temporizador);
   }, [cargarDatos, sesion]);
+
+  useEffect(() => {
+    if (!sesion) return undefined;
+    const suscripcion = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') cargarDatos({ silencioso: true });
+    });
+    return () => suscripcion.remove();
+  }, [cargarDatos, sesion]);
+
+  useEffect(() => {
+    if (!sesion || rol !== 'mesero') return;
+
+    const operativas = pedidos.filter((pedido) => pedido.estado === 'CANCELADO');
+
+    if (cancelacionesVistas.current === null) {
+      cancelacionesVistas.current = new Set(operativas.map((pedido) => pedido.id));
+      return;
+    }
+
+    const nuevas = operativas.filter((pedido) => !cancelacionesVistas.current.has(pedido.id));
+    if (!nuevas.length) return;
+
+    nuevas.forEach((pedido) => cancelacionesVistas.current.add(pedido.id));
+    setAvisosCancelacion((cola) => [...cola, ...nuevas]);
+  }, [pedidos, rol, sesion]);
+
+  useEffect(() => {
+    if (!avisosCancelacion.length) return;
+    if (pantalla === 'crear' || pantalla === 'resumen') return;
+
+    const [siguiente, ...resto] = avisosCancelacion;
+
+    const sigueElCliente = siguiente.requiere_retoma;
+    avisar.info(
+      `Cancelaron el pedido #${siguiente.id}`,
+      `${siguiente.cancelacion_motivo || 'Sin motivo registrado.'}\n\n`
+      + (sigueElCliente
+        ? `El cliente sigue en la mesa ${siguiente.mesa}: hay que volver a tomarle la orden.`
+        : `La mesa ${siguiente.mesa} quedó libre.`),
+    );
+    setAvisosCancelacion(resto);
+  }, [avisosCancelacion, pantalla]);
 
   const iniciarSesion = useCallback(async (usuario, contrasena, rolSolicitado) => {
     const datos = await apiLogin(usuario, contrasena);
@@ -157,11 +210,24 @@ export default function PantallaMenu() {
     return ticket;
   }, [cargarDatos]);
 
+  const liberarMesa = useCallback(async (numero) => {
+    await terracotaApi.liberarMesa(numero);
+    avisar.exito('Mesa liberada', `La mesa ${numero} vuelve a estar disponible.`);
+    cargarDatos({ silencioso: true });
+  }, [cargarDatos]);
+
   const ajustarSuministro = useCallback(async (productoId, datos) => {
     const actualizado = await terracotaApi.ajustarSuministro(productoId, datos);
     setInventario((actuales) => actuales.map((p) => (p.id === productoId ? actualizado : p)));
+
+    cargarDatos({ silencioso: true });
     return actualizado;
-  }, []);
+  }, [cargarDatos]);
+
+  const mesasPorRetomar = useMemo(
+    () => new Set(mesas.filter((mesa) => mesa.porRetomar).map((mesa) => mesa.id)),
+    [mesas],
+  );
 
   const estadisticas = useMemo(() => calcularEstadisticas(rol, {
     pedidos, pedidosCaja, ventasHoy, inventario,
@@ -248,6 +314,8 @@ function mapearProducto(producto) {
     precio: Number(producto.precio),
     stock: Number(producto.stock_actual ?? 0),
     nota: producto.nota || '',
+
+    imagen: urlImagen(producto.imagen),
   };
 }
 

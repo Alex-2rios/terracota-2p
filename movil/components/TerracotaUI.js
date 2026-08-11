@@ -2,8 +2,8 @@ import React from 'react';
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +13,17 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const propsTeclado = {
+  keyboardShouldPersistTaps: 'handled',
+  keyboardDismissMode: Platform.OS === 'ios' ? 'interactive' : 'on-drag',
+};
+
+const comportamientoTeclado = Platform.OS === 'ios' ? 'padding' : undefined;
+
+const RELLENO_BARRA = 10;
 
 const recursosIconos = {
   home: require('../assets/Menu.png'),
@@ -157,23 +168,29 @@ export function ContenedorPantalla({ children, scroll = true }) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ComponenteContenido
-        style={styles.content}
-        contentContainerStyle={scroll ? styles.scrollContent : undefined}
-        showsVerticalScrollIndicator={false}>
-        {children}
-      </ComponenteContenido>
+      <KeyboardAvoidingView style={styles.content} behavior={comportamientoTeclado}>
+        <ComponenteContenido
+          style={styles.content}
+          contentContainerStyle={scroll ? styles.scrollContent : undefined}
+          showsVerticalScrollIndicator={false}
+          {...(scroll ? propsTeclado : null)}>
+          {children}
+        </ComponenteContenido>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 export function MarcoTelefono({ children, elementosNavegacion = [], activo, alNavegar, mostrarNavegacion = true }) {
+  const margenes = useSafeAreaInsets();
+
   return (
-    <SafeAreaView style={styles.phoneSafe}>
+
+    <SafeAreaView style={styles.phoneSafe} edges={['top', 'left', 'right']}>
       <View style={styles.phone}>
         {children}
         {mostrarNavegacion && (
-          <View style={styles.roleNav}>
+          <View style={[styles.roleNav, { paddingBottom: RELLENO_BARRA + margenes.bottom }]}>
             {elementosNavegacion.map((elemento) => (
               <TouchableOpacity
                 key={elemento.clave}
@@ -208,20 +225,23 @@ export function Contenido({ children, scroll = true, alRefrescar, refrescando = 
   }
 
   return (
-    <ScrollView
-      style={styles.roleContent}
-      contentContainerStyle={styles.roleScroll}
-      showsVerticalScrollIndicator={false}
-      refreshControl={alRefrescar ? (
-        <RefreshControl
-          refreshing={refrescando}
-          onRefresh={alRefrescar}
-          colors={[colores.terracotta]}
-          tintColor={colores.terracotta}
-        />
-      ) : undefined}>
-      {children}
-    </ScrollView>
+    <KeyboardAvoidingView style={styles.roleContent} behavior={comportamientoTeclado}>
+      <ScrollView
+        style={styles.roleContent}
+        contentContainerStyle={styles.roleScroll}
+        showsVerticalScrollIndicator={false}
+        {...propsTeclado}
+        refreshControl={alRefrescar ? (
+          <RefreshControl
+            refreshing={refrescando}
+            onRefresh={alRefrescar}
+            colors={[colores.terracotta]}
+            tintColor={colores.terracotta}
+          />
+        ) : undefined}>
+        {children}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -333,7 +353,18 @@ export function FilaAcciones({ tituloIzquierdo = 'CANCELAR', tituloDerecho, alIz
   );
 }
 
-export function ImagenProducto({ tipo = 'bebida' }) {
+export function ImagenProducto({ tipo = 'bebida', uri }) {
+
+  if (uri) {
+    return (
+      <Image
+        source={{ uri }}
+        style={[styles.productImage, styles.productPhoto]}
+        resizeMode="cover"
+      />
+    );
+  }
+
   return (
     <View style={[styles.productImage, tipo === 'bolsa' && styles.productBag]}>
       <Icono icono={tipo === 'bolsa' ? 'bolsa' : 'producto'} tono="light" tamaño={tipo === 'bolsa' ? 39 : 35} />
@@ -387,7 +418,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 18,
-    paddingBottom: 28,
+
+    paddingBottom: 48,
   },
   logoWrap: {
     alignItems: 'center',
@@ -457,6 +489,8 @@ const styles = StyleSheet.create({
     color: colores.ink,
     fontSize: 14,
     padding: 0,
+
+    minWidth: 0,
   },
   inputShell: {
     backgroundColor: colores.white,
@@ -555,9 +589,9 @@ const styles = StyleSheet.create({
     backgroundColor: colores.background,
     overflow: 'hidden',
   },
+
   headerBar: {
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-    height: Platform.OS === 'android' ? 37 + StatusBar.currentHeight : 44,
+    height: 44,
     backgroundColor: colores.terracotta,
     flexDirection: 'row',
     alignItems: 'center',
@@ -570,19 +604,21 @@ const styles = StyleSheet.create({
   roleScroll: {
     paddingHorizontal: 20,
     paddingTop: 28,
-    paddingBottom: 26,
+
+    paddingBottom: 48,
   },
+
   roleNav: {
-    height: Platform.OS === 'ios' ? 66 : 78,
     backgroundColor: colores.terracotta,
     flexDirection: 'row',
     paddingHorizontal: 8,
-    paddingTop: 6,
-    paddingBottom: Platform.OS === 'ios' ? 12 : 26,
+    paddingTop: 8,
+    paddingBottom: RELLENO_BARRA,
     gap: 4,
   },
   roleNavItem: {
     flex: 1,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
@@ -733,6 +769,11 @@ const styles = StyleSheet.create({
     color: colores.surface,
     fontSize: 10,
     fontWeight: '900',
+  },
+
+  productPhoto: {
+    overflow: 'hidden',
+    backgroundColor: colores.white,
   },
   productImage: {
     width: 42,

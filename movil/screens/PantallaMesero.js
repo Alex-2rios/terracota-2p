@@ -30,6 +30,8 @@ export default function PantallaMesero({
   mesasDisponibles,
   productosDisponibles,
   alCrearPedido,
+  mesasPorRetomar,
+  alLiberarMesa,
   alEntregarPedido,
   alCerrarSesion,
   cargando,
@@ -112,7 +114,11 @@ export default function PantallaMesero({
     setFiltroActivo('TODOS');
   };
 
+  const esperaRetoma = (idMesa) => mesasPorRetomar?.has(idMesa) ?? false;
+
   const mesaEstaOcupada = (idMesa) => {
+    if (esperaRetoma(idMesa)) return false;
+
     const mesa = mesasDisponibles.find((item) => item.id === idMesa);
     const tienePedidoActivo = pedidos.some(
       (pedido) => pedido.mesa === idMesa && ESTADOS_ACTIVOS.includes(pedido.estado),
@@ -221,21 +227,47 @@ export default function PantallaMesero({
             {mesasFiltradas.map((mesa) => {
               const ocupada = mesaEstaOcupada(mesa.id);
               const seleccionada = mesaSeleccionada === mesa.id;
+
+              const porRetomar = mesasPorRetomar?.has(mesa.id) ?? false;
+              const bloqueada = ocupada && !porRetomar;
+              const etiquetaMesa = porRetomar ? 'POR RETOMAR' : ocupada ? 'OCUPADA' : 'DISPONIBLE';
               return (
                 <TouchableOpacity
                   key={mesa.id}
-                  style={[styles.tableCard, ocupada && styles.tableOccupied, seleccionada && styles.tableSelected]}
+                  style={[
+                    styles.tableCard,
+                    ocupada && styles.tableOccupied,
+                    porRetomar && styles.tableRetomar,
+                    seleccionada && styles.tableSelected,
+                  ]}
                   onPress={() => seleccionarMesa(mesa)}
-                  activeOpacity={ocupada ? 1 : 0.82}
+                  activeOpacity={bloqueada ? 1 : 0.82}
                   accessibilityRole="button"
-                  accessibilityState={{ disabled: ocupada, selected: seleccionada }}
-                  accessibilityLabel={`Mesa ${mesa.id}, ${ocupada ? 'ocupada' : 'disponible'}`}>
+                  accessibilityState={{ disabled: bloqueada, selected: seleccionada }}
+                  accessibilityLabel={`Mesa ${mesa.id}, ${etiquetaMesa.toLowerCase()}`}>
                   <ImagenProducto tipo="bolsa" />
-                  <View>
+                  <View style={styles.tableInfo}>
                     <Text style={styles.tableTitle}>MESA {mesa.id}</Text>
-                    <Text style={[styles.tableStatus, ocupada && styles.tableStatusBusy]}>
-                      {ocupada ? 'OCUPADA' : 'DISPONIBLE'}
+                    <Text style={[
+                      styles.tableStatus,
+                      ocupada && styles.tableStatusBusy,
+                      porRetomar && styles.tableStatusRetomar,
+                    ]}>
+                      {etiquetaMesa}
                     </Text>
+                    {porRetomar && (
+                      <>
+                        <Text style={styles.tableHint}>
+                          El cliente sigue aquí: toca para tomar de nuevo la orden.
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => alLiberarMesa?.(mesa.id)}
+                          hitSlop={8}
+                          accessibilityRole="button">
+                          <Text style={styles.tableLiberar}>El cliente se retiró</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
                   </View>
                 </TouchableOpacity>
               );
@@ -283,7 +315,7 @@ export default function PantallaMesero({
 
             return (
               <View key={item.id} style={[styles.productRow, cantidad > 0 && styles.productRowSelected]}>
-                <ImagenProducto />
+                <ImagenProducto uri={item.imagen} />
                 <View style={styles.productInfo}>
                   <Text style={styles.productName}>{item.nombre}</Text>
                   <Text style={[styles.available, stock <= 5 && styles.availableLow]}>
@@ -351,7 +383,7 @@ export default function PantallaMesero({
           <View style={styles.summaryCard}>
             {articulosSeleccionados.map((item) => (
               <View key={item.id} style={styles.summaryRow}>
-                <ImagenProducto />
+                <ImagenProducto uri={item.imagen} />
                 <View style={styles.productInfo}>
                   <Text style={styles.productName}>{item.nombre}</Text>
                   <Text style={styles.note}>{item.observacion || 'Sin observaciones'}</Text>
@@ -458,7 +490,7 @@ function TarjetaPedido({ pedido, alVerDetalles }) {
 
   return (
     <View style={styles.orderCard}>
-      <ImagenProducto />
+      <ImagenProducto tipo="bolsa" />
       <View style={styles.productInfo}>
         <Text style={styles.productName}>PEDIDO #{pedido.id}</Text>
         <Text style={styles.note}>Mesa {pedido.mesa} · {cantidadProductos} productos</Text>
@@ -493,6 +525,31 @@ function formatearDinero(valor) {
 const styles = StyleSheet.create({
   tableGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 26 },
   tableCard: { width: '47%', minHeight: 78, backgroundColor: '#DFB78F', borderRadius: 9, flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10, shadowColor: colores.shadow, shadowOpacity: 0.08, shadowRadius: 7, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
+
+  tableRetomar: {
+    borderWidth: 2,
+    borderColor: colores.terracotta,
+    opacity: 1,
+  },
+  tableInfo: {
+    flex: 1,
+  },
+  tableStatusRetomar: {
+    color: colores.terracotta,
+    fontWeight: '900',
+  },
+  tableHint: {
+    color: colores.muted,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  tableLiberar: {
+    color: colores.terracotta,
+    fontSize: 10,
+    fontWeight: '800',
+    marginTop: 4,
+    textDecorationLine: 'underline',
+  },
   tableOccupied: { backgroundColor: '#FFF2E7', borderWidth: 1, borderColor: colores.danger },
   tableSelected: { borderWidth: 2, borderColor: colores.terracottaDark },
   tableTitle: { color: colores.ink, fontWeight: '900', fontSize: 13 },
