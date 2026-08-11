@@ -144,10 +144,14 @@ en_contenedor /app/android ./gradlew assembleRelease --no-daemon --console=plain
 paso "6/6  Resultado"
 ORIGEN="android/app/build/outputs/apk/release/app-release.apk"
 VERSION="$(python3 -c "import json;print(json.load(open('app.json'))['expo']['version'])")"
-DESTINO="../Terracota-v${VERSION}.apk"
+
+mkdir -p ../descargas
+DESTINO="../descargas/Terracota-v${VERSION}.apk"
 
 cp "$ORIGEN" "$DESTINO"
-echo "    $(cd .. && ls -lh "$(basename "$DESTINO")" | awk '{print $5}')  ->  $(cd .. && pwd)/$(basename "$DESTINO")"
+ln -sfn "Terracota-v${VERSION}.apk" ../descargas/terracota.apk
+echo "    $(ls -lh "$DESTINO" | awk '{print $5}')  ->  $(cd ../descargas && pwd)/Terracota-v${VERSION}.apk"
+echo "    descarga: ${API_URL%:*}:10000/terracota.apk"
 
 en_contenedor /app sh -c '$ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs '"$ORIGEN"' 2>&1 | head -3' \
   | sed 's/^/    /'

@@ -51,6 +51,13 @@ yarn-debug.*
 yarn-error.*
 *.tsbuildinfo
 
-# Artefactos de compilación de la app móvil.
+# Artefactos de compilación de la app móvil. La carpeta descargas/ sí se
+# versiona (vacía, con su .gitkeep): docker-compose la monta en el contenedor
+# `movil`, y un bind mount sobre una carpeta que no existe la crearía como root.
 *.apk
 *.aab
+
+# Códigos QR de presentación. Se regeneran en un segundo a partir de la URL y
+# quedan obsoletos en cuanto cambia el nombre del tailnet:
+#   qrencode -o QR-terracota.png https://<host>:10000/
+QR-*.png
