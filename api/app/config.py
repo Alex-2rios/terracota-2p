@@ -14,6 +14,9 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:5000,http://127.0.0.1:5000,http://localhost:8081,http://localhost:19006"
 
+    media_dir: str = "/media"
+    imagen_max_bytes: int = Field(default=5 * 1024 * 1024, ge=64 * 1024)
+
     login_max_intentos: int = Field(default=8, ge=3, le=100)
     login_ventana_segundos: int = Field(default=300, ge=30, le=3600)
 

@@ -1,11 +1,13 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import psycopg
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .database import create_pool
@@ -116,3 +118,7 @@ for api_router in (
     administracion.router,
 ):
     app.include_router(api_router, prefix="/api/v1")
+
+_carpeta_media = Path(settings.media_dir)
+_carpeta_media.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=_carpeta_media), name="media")

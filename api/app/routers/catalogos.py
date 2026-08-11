@@ -13,10 +13,22 @@ def list_tables(
 ) -> list[dict]:
     return connection.execute(
         """
-        SELECT numero AS id, numero, capacidad, estado
-        FROM terracota.mesas
-        WHERE activa
-        ORDER BY numero
+        SELECT m.numero AS id, m.numero, m.capacidad, m.estado,
+               -- Estado de la MESA, no del mesero: una orden pendiente de
+               -- retomar la tiene que poder atender cualquiera del turno, no
+               -- sólo quien levantó el pedido cancelado.
+               EXISTS (
+                 SELECT 1 FROM terracota.pedidos p
+                  WHERE p.mesa_id = m.id AND p.requiere_retoma
+               ) AS por_retomar,
+               (
+                 SELECT p.cancelacion_motivo FROM terracota.pedidos p
+                  WHERE p.mesa_id = m.id AND p.requiere_retoma
+                  ORDER BY p.id DESC LIMIT 1
+               ) AS motivo_retoma
+        FROM terracota.mesas m
+        WHERE m.activa
+        ORDER BY m.numero
         """
     ).fetchall()
 
@@ -44,7 +56,7 @@ def list_products(
         """
         SELECT p.clave AS id, p.clave, p.nombre, c.clave AS categoria,
                c.nombre AS categoria_nombre, p.descripcion AS nota,
-               p.precio, p.stock_actual, p.disponible
+               p.imagen, p.precio, p.stock_actual, p.disponible
         FROM terracota.productos p
         JOIN terracota.categorias c ON c.id = p.categoria_id
         WHERE c.activo AND p.disponible AND NOT p.eliminado AND p.stock_actual > 0

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import secrets
+from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from psycopg import Connection
 
+from ..config import get_settings
 from ..database import get_connection
 from ..dependencies import CurrentUser, require_roles
 from ..queries import get_categoria_id, get_producto, slugify
@@ -234,3 +237,78 @@ def low_stock(
         ORDER BY stock_actual, nombre
         """
     ).fetchall()
+
+FIRMAS_IMAGEN = {
+    b"\x89PNG\r\n\x1a\n": ".png",
+    b"\xff\xd8\xff": ".jpg",
+}
+
+def _extension_si_es_imagen(datos: bytes) -> Optional[str]:
+    for firma, extension in FIRMAS_IMAGEN.items():
+        if datos.startswith(firma):
+            return extension
+    if datos[:4] == b"RIFF" and datos[8:12] == b"WEBP":
+        return ".webp"
+    return None
+
+@router.put("/productos/{product_id}/imagen", summary="Subir Foto del Producto")
+async def upload_product_image(
+    product_id: int,
+    archivo: UploadFile = File(..., description="PNG, JPG o WebP"),
+    _: CurrentUser = Depends(inventario_required),
+    connection: Connection = Depends(get_connection),
+) -> dict:
+    """Guarda la foto y deja en la base sólo su nombre de archivo."""
+    ajustes = get_settings()
+    producto = get_producto(connection, product_id)
+
+    datos = await archivo.read()
+    if not datos:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "El archivo llegó vacío.")
+    if len(datos) > ajustes.imagen_max_bytes:
+        limite = ajustes.imagen_max_bytes // (1024 * 1024)
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            f"La imagen supera el límite de {limite} MB.",
+        )
+
+    extension = _extension_si_es_imagen(datos)
+    if extension is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "El archivo no es una imagen PNG, JPG o WebP.",
+        )
+
+    carpeta = Path(ajustes.media_dir)
+    carpeta.mkdir(parents=True, exist_ok=True)
+
+    nombre = f"{producto['clave']}-{secrets.token_hex(4)}{extension}"
+    (carpeta / nombre).write_bytes(datos)
+
+    anterior = producto.get("imagen")
+    connection.execute(
+        "UPDATE terracota.productos SET imagen = %s, actualizado_en = now() WHERE id = %s",
+        (nombre, product_id),
+    )
+
+    if anterior and anterior != nombre:
+        (carpeta / anterior).unlink(missing_ok=True)
+
+    return get_producto(connection, product_id)
+
+@router.delete("/productos/{product_id}/imagen", summary="Quitar Foto del Producto")
+def delete_product_image(
+    product_id: int,
+    _: CurrentUser = Depends(inventario_required),
+    connection: Connection = Depends(get_connection),
+) -> dict:
+    ajustes = get_settings()
+    producto = get_producto(connection, product_id)
+
+    if producto.get("imagen"):
+        (Path(ajustes.media_dir) / producto["imagen"]).unlink(missing_ok=True)
+        connection.execute(
+            "UPDATE terracota.productos SET imagen = NULL, actualizado_en = now() WHERE id = %s",
+            (product_id,),
+        )
+    return get_producto(connection, product_id)

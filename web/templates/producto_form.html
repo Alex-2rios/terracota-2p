@@ -5,7 +5,7 @@
     <h1>{{ page_title }}</h1>
   </section>
 
-  <form class="form-card product-card" method="post"
+  <form class="form-card product-card" method="post" enctype="multipart/form-data"
         data-confirm="¿Deseas guardar este producto?">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
@@ -61,6 +61,31 @@
     {% if es_nuevo %}
       <p class="subtle">La clave interna del producto se genera automáticamente a partir del nombre.</p>
     {% endif %}
+
+    <div class="form-title separado">
+      <h2>Foto del producto</h2>
+    </div>
+
+    <div class="foto-producto">
+      {% if producto.imagen %}
+        <img class="foto-actual" src="{{ media_url }}/{{ producto.imagen }}"
+             alt="Foto de {{ producto.nombre }}">
+      {% else %}
+        <span class="foto-vacia">Sin foto</span>
+      {% endif %}
+
+      <div class="foto-controles">
+        <label class="field-label" for="imagen">Elegir una imagen</label>
+        <input type="file" id="imagen" name="imagen" accept="image/png,image/jpeg,image/webp">
+        <p class="subtle">PNG, JPG o WebP, hasta 5 MB. Si no eliges nada, se conserva la actual.</p>
+        {% if producto.imagen %}
+          <label class="check-inline">
+            <input type="checkbox" name="quitar_imagen" value="1">
+            Quitar la foto actual
+          </label>
+        {% endif %}
+      </div>
+    </div>
 
     <div class="form-actions">
       <button class="primary" type="submit">{{ action_label }}</button>
