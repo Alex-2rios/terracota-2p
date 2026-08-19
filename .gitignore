@@ -39,8 +39,11 @@ firma.properties
 movil/android/
 movil/ios/
 
-# Documentación: se mantiene en local, fuera del repositorio.
-*.md
+CREDENCIALES.md
+api/README.md
+database/README.md
+movil/README.md
+web/README.md
 
 # Sistema y editores
 .DS_Store
