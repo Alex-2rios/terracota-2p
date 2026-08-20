@@ -1,5 +1,7 @@
 # Terracota · Entrega 2º parcial
 
+English version: [README.en.md](README.en.md)
+
 Punto de venta para una cafetería. Hay una sola API y dos clientes que la
 consumen: una app móvil y un panel web. Ninguno de los dos toca la base de
 datos directamente.
